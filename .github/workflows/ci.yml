@@ -1,0 +1,30 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-venv file binutils openssl curl libimage-exiftool-perl gcc
+      - name: Install package
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install .
+      - name: Check dependencies and run tests
+        run: |
+          .venv/bin/wired2ai doctor --json
+          .venv/bin/python -m unittest discover -s tests -v
