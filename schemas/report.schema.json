@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "wired2ai report envelope 0.1",
+  "type": "object",
+  "required": ["schema_version", "tool", "category", "started_at", "target", "limits", "checks", "evidence", "handling"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "0.1"},
+    "tool": {
+      "type": "object", "required": ["name", "version"], "additionalProperties": false,
+      "properties": {"name": {"const": "wired2ai"}, "version": {"type": "string"}}
+    },
+    "category": {"enum": ["web", "pwn", "re", "crypto", "forensics"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "target": {"type": "object"},
+    "limits": {"type": "object"},
+    "handling": {"type": "object"},
+    "checks": {
+      "type": "array", "items": {
+        "type": "object", "required": ["id", "title", "status", "data", "evidence_ids", "notes"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[CPRKFW][0-9]{3}$"},
+          "title": {"type": "string"},
+          "status": {"enum": ["complete", "no_match", "partial", "timeout", "failed", "unavailable", "unsupported", "not_applicable", "skipped"]},
+          "data": {"type": "object"},
+          "evidence_ids": {"type": "array", "items": {"type": "string", "pattern": "^E[0-9]{3,}$"}},
+          "notes": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "evidence": {
+      "type": "array", "items": {
+        "type": "object", "required": ["id", "kind"],
+        "properties": {"id": {"type": "string", "pattern": "^E[0-9]{3,}$"}, "kind": {"type": "string"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "file",
+    "--brief",
+    "--",
+    "<private-workdir>/target.txt"
+  ],
+  "status": "complete",
+  "returncode": 0,
+  "stdout": "ASCII text\n",
+  "stderr": "",
+  "duration_ms": 8,
+  "output_truncated": false,
+  "id": "E002",
+  "kind": "command",
+  "tool_version": "file-5.45"
+}

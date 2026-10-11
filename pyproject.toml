@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wired2ai"
+version = "0.1.0a1"
+description = "Local CTF triage with traceable evidence for analysts and LLMs"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "krnlbash"}]
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+]
+dependencies = []
+
+[project.scripts]
+wired2ai = "wired2ai.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
