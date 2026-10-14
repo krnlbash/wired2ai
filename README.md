@@ -2,9 +2,12 @@
 
 Local CTF triage with traceable evidence for analysts and LLMs.
 
-**Version: 0.1.0a1 — first working alpha.** Maintainer: **krnlbash**.
-Target platform: Kali Linux; Python 3.11+. This release was validated on Ubuntu
-24.04 with Python 3.12, not on a Kali installation. See [validation](docs/VALIDATION.md).
+**Version: 0.1.0a2 — reporting fixes after Kali testing.** Maintainer: **krnlbash**.
+Target platform: Kali Linux; Python 3.11+. The maintainer reports successful
+0.1.0a1 testing on Kali rolling with Python 3.14.7, including all 59 original
+tests and 60 after a local curl-diagnostic regression was added. The 0.1.0a2
+changes are validated separately on Ubuntu 24.04/Python 3.12; their Kali rerun
+is pending. See the environment-specific [validation record](docs/VALIDATION.md).
 
 wired2ai turns a challenge file or an explicitly supplied web URL into a bounded
 Markdown brief and a structured JSON report. It collects observations and records
@@ -48,6 +51,14 @@ requires setuptools >= 77 and may download build dependencies. You can also run
 directly with `PYTHONPATH=src python3 -m wired2ai --help`.
 Installing OS packages requires privileges; running wired2ai does not.
 
+For development, use `.venv/bin/python -m pip install -e .` so edits under
+`src/` are used by the installed CLI immediately. With a regular `pip install .`,
+repeat that command after source changes to refresh the installed copy.
+Reports written to `runs/` or `wired2ai-runs/` are ignored by Git; review any
+custom output directory before committing files or uploading through a browser.
+Do not rely on `.gitignore` to filter files you select for a browser upload;
+the prepared source ZIP already excludes generated runs and local environments.
+
 ## Use
 
 ```bash
@@ -70,6 +81,13 @@ Redirects cannot change scheme, host, effective port, or leave that directory.
 Probe requests do not follow redirects. IP/private-address targets are permitted
 for local CTFs; this is not an SSRF filtering service.
 
+If the main request fails to resolve or connect to the host (curl exit 6 or 7,
+with no HTTP status), optional probes are skipped with an explanation. An HTTP
+403/404 is still a response and does not suppress probes; other paths may work.
+Other failures retain the bounded probe behavior. Curl transport reasons appear
+in the check note; evidence retains the return code, stderr and any header-parse
+error separately.
+
 `--category auto` selects RE for ELF/MZ inputs, crypto for text, and forensics for
 other files. This is a convenience heuristic; specify the category when you know
 the challenge. Pwn and RE intentionally share their low-level ELF collectors.
@@ -89,6 +107,13 @@ not mean the target is safe or exploitable. Missing tools, timeouts, unsupported
 formats, skipped checks and partial results are distinct states. A HTTP 404 is a
 completed response, not a connection failure. Use [CLI reference](docs/CLI.md) for
 the full status and exit-code definitions.
+
+Partial results now explain selection, sampling or dependency limits in `notes`.
+Counts describe the scanned region; a stopped scan does not claim to know the
+whole-file candidate total. PNG bytes after IEND are flagged in `anomalies` and
+highlighted near the top of `context.md`, including when check details are omitted
+by its byte budget. Invalid PNG chunk-name bytes use escaped labels and a raw
+`type_hex` field. These are analysis leads, not a steganography verdict.
 
 The input is copied to a temporary private snapshot, bounded by the configured
 file-size limit. Native tools read that snapshot, not the original path. Hashes
@@ -146,8 +171,8 @@ The archive is source-only: everything inside is intended for the repository.
 Installation uses the source command above. Uploading extracted files creates
 GitHub commits; it does not import a separate local Git history or tag. Create
 the alpha tag and pre-release through GitHub's Releases page when ready.
-The Python version `0.1.0a1` corresponds to the release label
-`v0.1.0-alpha.1`. See the [browser release guide](docs/RELEASING.md) for the
+The Python version `0.1.0a2` corresponds to the release label
+`v0.1.0-alpha.2`. See the [browser release guide](docs/RELEASING.md) for the
 complete procedure and updates to later versions.
 
 This initial implementation was developed with Codex assistance; project

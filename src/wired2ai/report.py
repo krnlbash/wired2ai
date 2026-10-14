@@ -74,8 +74,19 @@ class Report:
             raise ValueError(f"Invalid check status: {status}")
         if any(check["id"] == check_id for check in self.checks):
             raise ValueError(f"Duplicate check ID: {check_id}")
-        check = {"id": check_id, "title": title, "status": status, "data": data or {},
-                 "evidence_ids": list(refs), "notes": list(notes)}
+        refs, notes = list(refs), list(notes)
+        if status == "partial":
+            for item in self.evidence:
+                if item["id"] not in refs or item.get("status") in (None, "complete"):
+                    continue
+                if item.get("output_truncated"):
+                    reason = "native command output limit reached; total output size is unknown"
+                else:
+                    reason = item.get("error") or f"dependent evidence is {item['status']}"
+                notes.append(f"{item['id']}: {reason}.")
+        # Put limitations before potentially long data so Markdown excerpts retain them.
+        check = {"id": check_id, "title": title, "status": status, "notes": notes,
+                 "evidence_ids": refs, "data": data or {}}
         self.checks.append(check)
         return check
 
@@ -121,9 +132,17 @@ class Report:
         )
         inventory = "## Check inventory\n\n" + "\n".join(
             f"- {c['id']}: {c['status']} — {c['title']}" for c in report["checks"]) + "\n\n"
+        highlights = ""
+        for check in report["checks"]:
+            data = check["data"]
+            if check["id"] == "F002" and data.get("iend_reached") and data.get("trailing_bytes", 0) > 0:
+                highlights = ("## Notable observations\n\n"
+                              f"- F002: {data['trailing_bytes']} bytes after IEND at offset {data['trailing_offset']}. "
+                              f"Evidence: {', '.join(check['evidence_ids'])}. "
+                              "Inspect the trailing data; this is a triage lead, not proof of hidden content or an exploit.\n\n")
         target = "## Input\n\n" + fence(json.dumps(report["target"], indent=2, ensure_ascii=False), "json") + "\n"
         ending = "\nExport limits are byte counts, not model-specific token counts. See report.json for provenance and limits.\n"
-        text = intro + inventory
+        text = intro + highlights + inventory
         omitted = []
         for check in report["checks"]:
             detail = json.dumps(check, indent=2, ensure_ascii=False)
@@ -138,13 +157,20 @@ class Report:
                 text += section
             else:
                 omitted.append(check["id"])
+                if check["status"] == "partial" and check["notes"]:
+                    brief = {key: check[key] for key in ("id", "status", "notes", "evidence_ids")}
+                    brief["data_omitted"] = "Markdown byte budget; see report.json."
+                    section = (f"## {check['id']} — {check['title']} (notes only)\n\n"
+                               + fence(json.dumps(brief, indent=2, ensure_ascii=False), "json") + "\n")
+                    if len((text + target + section + ending).encode("utf-8")) + reserve <= budget:
+                        text += section
         text = intro + target + text[len(intro):]
         if omitted:
             text += "## Details omitted by the Markdown byte budget\n\n" + ", ".join(omitted) + ". See report.json.\n"
         text += ending
         if len(text.encode("utf-8")) > budget:
             # For extreme filenames, preserve an explicit notice and the complete JSON export.
-            text = intro + "\nMarkdown budget exceeded by metadata. Read report.json for this run.\n"
+            text = intro + highlights + "\nMarkdown budget exceeded by metadata. Read report.json for this run.\n"
         return text
 
     def write(self, directory: Path, markdown_budget: int = 32768) -> None:

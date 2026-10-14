@@ -6,6 +6,7 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 | Milestone | Deliverable | Release gate |
 | --- | --- | --- |
 | 0.1.0 alpha | Five small category modules, local reports, bounds and provenance | Local regression suite, usable package and honest coverage documentation |
+| 0.1.0a2 | Kali-driven reporting fixes: curl reasons, PNG leads, explicit partial counts | Local regression suite and package validation; Kali rerun pending |
 | 0.1.0 stable / 0.1.x | Kali validation, parser compatibility fixes, sharper failure reporting | Reproduced installation on a clean Kali VM, recorded doctor output, no unresolved critical regression |
 | 0.2.0 | Deeper forensics/RE: PCAPNG, selected packet dissection, improved PE detail | Bounded malformed-input fixtures and useful evidence beyond the alpha |
 | 0.3.0 | Better web/crypto: explicit custom CA support, stronger soft-404 handling, richer crypto formats | Negative controls, no secret-export regression, reproducible examples |
@@ -14,8 +15,9 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 
 ## Next concrete issues
 
-1. Run the alpha on a clean Kali VM, including ExifTool. Record package versions,
-   test result and CLI outputs in `docs/VALIDATION.md`; fix differences first.
+1. Rerun 0.1.0a2 on Kali, including ExifTool and the changed reporting cases.
+   The maintainer's 0.1.0a1 validation is recorded in `docs/VALIDATION.md`;
+   retain version-specific results and inspect the JSON/Markdown contents.
 2. Add the first false-positive or missed-observation regression from a real,
    redistributable CTF artifact. Include its expected evidence, not only a flag.
 3. Evaluate 10–20 permitted fixtures against manual triage: collection time,

@@ -61,6 +61,7 @@ The implementation was checked against these primary references:
 - [GNU readelf](https://sourceware.org/binutils/docs/binutils/readelf.html)
 - [OpenSSL pkey](https://docs.openssl.org/3.5/man1/openssl-pkey/)
 - [curl options and response handling](https://curl.se/docs/manpage.html)
+- [curl error code meanings](https://curl.se/libcurl/c/libcurl-errors.html)
 - [PNG Third Edition](https://www.w3.org/TR/png-3/)
 - [Python zipfile](https://docs.python.org/3/library/zipfile.html)
 

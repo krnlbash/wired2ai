@@ -9,7 +9,7 @@
   "returncode": 0,
   "stdout": "ASCII text\n",
   "stderr": "",
-  "duration_ms": 8,
+  "duration_ms": 6,
   "output_truncated": false,
   "id": "E002",
   "kind": "command",

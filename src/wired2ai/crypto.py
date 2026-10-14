@@ -26,10 +26,16 @@ def byte_statistics(data: bytes) -> dict:
             "interpretation": "Descriptive statistics only; high entropy does not identify encryption, compression, or a cipher."}
 
 
+def sampling_notes(stats: dict) -> list[str]:
+    return ([f"Analyzed {stats['sample_bytes']} of {stats['total_bytes']} bytes; statistics cover the initial sample only."]
+            if stats["sample_truncated"] else [])
+
+
 def encoding_candidates(data: bytes) -> dict:
     sample = data[:65536]
     text = sample.decode("ascii", "replace")
     candidates = []
+    candidates_seen = 0
     # One decoding layer. No execution, file creation, or recursive decompression.
     for match in re.finditer(r"(?<![A-Za-z0-9+/=_-])[A-Za-z0-9+/=_-]{8,}(?![A-Za-z0-9+/=_-])", text):
         token = match.group()
@@ -48,14 +54,27 @@ def encoding_candidates(data: bytes) -> dict:
             except (ValueError, binascii.Error):
                 pass
         for encoding, decoded in variants:
+            candidates_seen += 1
+            if len(candidates) == 12:
+                continue
             preview = "[SUPPRESSED PRIVATE KEY]" if contains_private_key(decoded) else decoded[:160].decode("utf-8", "replace")
             candidates.append({"encoding": encoding, "source_offset": match.start(), "source_length": len(token),
                                "decoded_length": len(decoded), "decoded_sha256": hashlib.sha256(decoded).hexdigest(),
                                "decoded_preview": preview, "preview_truncated": len(decoded) > 160})
-            if len(candidates) >= 12:
-                return {"candidates": candidates, "selection_truncated": True, "sample_bytes": len(sample)}
-    return {"candidates": candidates, "selection_truncated": len(data) > len(sample), "sample_bytes": len(sample),
+    return {"candidates": candidates, "candidates_seen": candidates_seen, "selection_limit": 12,
+            "selection_truncated": candidates_seen > 12 or len(data) > len(sample),
+            "sample_bytes": len(sample), "total_bytes": len(data), "sample_truncated": len(data) > len(sample),
             "note": "Encoding compatibility is not proof of intended encoding; unpadded base64 is not inferred."}
+
+
+def encoding_selection_notes(encodings: dict) -> list[str]:
+    if not encodings["selection_truncated"]:
+        return []
+    notes = [f"Kept {len(encodings['candidates'])} of {encodings['candidates_seen']} decoding candidates "
+             f"found in the scanned sample (selection limit {encodings['selection_limit']})."]
+    if encodings["sample_truncated"]:
+        notes.append(f"Scanned {encodings['sample_bytes']} of {encodings['total_bytes']} bytes; candidates beyond this prefix are unknown.")
+    return notes
 
 
 def rsa_parameters(data: bytes) -> dict:
@@ -129,14 +148,16 @@ def rsa_parameters(data: bytes) -> dict:
 
 def collect_crypto(report: Report, source: FileInput, runner: Runner) -> None:
     stats = byte_statistics(source.data)
-    report.add("K001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats, refs=["E001"])
+    report.add("K001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats,
+               refs=["E001"], notes=sampling_notes(stats))
     if source.profile["private_key_marker"]:
         report.add("K002", "Encoding candidates", "skipped", notes=["Private-key container: payload previews suppressed."])
         report.add("K003", "Literal RSA parameter checks", "skipped", notes=["Private-key container: only public-component export is attempted."])
     else:
         encodings = encoding_candidates(source.data)
         report.add("K002", "Encoding candidates", "partial" if encodings["selection_truncated"] else
-                   ("complete" if encodings["candidates"] else "no_match"), encodings, refs=["E001"])
+                   ("complete" if encodings["candidates"] else "no_match"), encodings,
+                   refs=["E001"], notes=encoding_selection_notes(encodings))
         params = rsa_parameters(source.data)
         report.add("K003", "Literal RSA parameter checks", "complete" if params["parameters"] else
                    ("skipped" if "reason" in params else "no_match"), params, refs=["E001"])

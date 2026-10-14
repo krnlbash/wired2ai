@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import struct
 
-from .files import FileInput
+from .files import FileInput, string_selection_notes
 from .report import Report
 from .runner import Runner
 
@@ -125,4 +125,5 @@ def collect_binary(report: Report, source: FileInput, runner: Runner, strings: d
             if re.search(r"flag|ctf|correct|incorrect|license|serial", text, re.I):
                 groups["challenge_keywords"].append(item)
         report.add("R005", "RE leads from selected strings", "partial" if strings.get("selection_truncated") else "complete",
-                   groups, refs=["E001"], notes=["Heuristic labels over C004's selected strings; no decompilation or control-flow analysis."])
+                   groups, refs=["E001"], notes=["Heuristic labels over C004's selected strings; no decompilation or control-flow analysis.",
+                                               *string_selection_notes(strings)])

@@ -23,13 +23,19 @@ network I/O; file triage does not intentionally request a network resource.
 | `--markdown-kib N` | 32 | 8–256; UTF-8 byte budget, not tokens |
 | `--max-file-mib N` | 32 | 1–256; triage only; complete snapshot required |
 | `--max-requests N` | 10 | 1–20; web only; redirects count |
-| `--probe-paths` | Off | Four additional scoped GETs: robots, missing-path control, Git HEAD, environment |
+| `--probe-paths` | Off | Up to four additional scoped GETs: robots, missing-path control, Git HEAD, environment |
 | `--strict` | Off | Exit 1 for failed/timeout/unavailable checks |
 
 Tool-version probes have the same command guard but do not count as HTTP
 requests. The overall run can take longer than `--timeout` because it contains
 multiple sequential subprocesses. HTTP headers count against curl's combined
 output limit, so a body may be shorter than that configured limit.
+
+Optional probes are skipped when the main request has no HTTP status and curl
+returns 6 (DNS resolution) or 7 (connection failure). The skip notes reference
+the main request's evidence. HTTP 403/404 responses do not trigger this gate;
+paths other than the entry page can remain accessible. Other failure types keep
+the existing bounded probe behavior. No automatic retry is introduced.
 
 ## Check statuses and exit codes
 
@@ -73,6 +79,23 @@ mean every byte of input/native output was retained. Each collector has limits,
 native output is bounded, and exports are sanitized. The Markdown export also
 caps individual check excerpts and omits sections when its total budget is full.
 JSON remains valid even when a Markdown excerpt is truncated.
+
+Partial-check notes identify the limiting condition. String notes report how
+many candidates were kept from those considered; when a per-encoding scan cap
+is hit, the full candidate count is explicitly unknown. Encoding notes give the
+kept/found count within the first 65,536 bytes and state how much of the input
+was sampled. At most 12 decoding previews are retained; exactly 12 candidates
+is not a partial result when the complete input was scanned. Counts include
+separate hex/base64 interpretations of the same token. Tokens outside the
+bounded 8–32,768-character encoding search are not decoded.
+
+Notes precede long check data. When a full partial-check section exceeds the
+Markdown budget, a notes-only section is retained if it fits; otherwise its ID
+is listed among the omissions. JSON always retains all collected check notes.
+PNG trailing data gets a separate compact highlight with check/evidence IDs,
+byte count and offset. PNG `type` escapes invalid chunk-name bytes as `\xNN`;
+`type_hex` preserves all four bytes. A trailing-data finding is a lead for
+inspection, not a claim that a flag or exploit exists.
 
 UTF-16 string detection is heuristic and may report overlapping interpretations.
 ASCII/UTF-16 scans consider at most 2,000 candidates per encoding, select at most

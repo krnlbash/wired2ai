@@ -10,7 +10,7 @@ import zipfile
 import zlib
 from pathlib import PurePosixPath
 
-from .crypto import byte_statistics
+from .crypto import byte_statistics, sampling_notes
 from .files import FileInput
 from .report import Report
 from .runner import Runner
@@ -20,6 +20,14 @@ def inspect_png(data: bytes) -> dict:
     if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise ValueError("PNG signature missing")
     offset, chunks, anomalies = 8, [], []
+    anomalies_seen = 0
+
+    def anomaly(message: str) -> None:
+        nonlocal anomalies_seen
+        anomalies_seen += 1
+        if len(anomalies) < 80:
+            anomalies.append(message)
+
     dimensions = None
     idat_seen = False
     idat_closed = False
@@ -28,7 +36,7 @@ def inspect_png(data: bytes) -> dict:
     while offset < len(data):
         count += 1
         if count > 4096:
-            anomalies.append("Stopped after 4096 chunks")
+            anomaly("Stopped after 4096 chunks")
             break
         if offset + 12 > len(data):
             raise ValueError(f"Truncated PNG chunk header at offset {offset}")
@@ -40,25 +48,28 @@ def inspect_png(data: bytes) -> dict:
         expected = struct.unpack_from(">I", data, offset + 8 + length)[0]
         actual = zlib.crc32(memoryview(data)[offset + 4:offset + 8 + length]) & 0xffffffff
         valid_crc = expected == actual
-        label = kind.decode("ascii", "replace")
+        # PNG names contain ASCII letters; escape every invalid byte losslessly.
+        label = "".join(chr(byte) if 65 <= byte <= 90 or 97 <= byte <= 122 else f"\\x{byte:02x}" for byte in kind)
         if len(chunks) < 256:
-            chunks.append({"type": label, "offset": offset, "length": length, "crc_valid": valid_crc})
-        if not valid_crc and len(anomalies) < 80:
-            anomalies.append(f"CRC mismatch for {label} at offset {offset}")
+            chunks.append({"type": label, "type_hex": kind.hex(), "offset": offset, "length": length, "crc_valid": valid_crc})
+        if not all(65 <= byte <= 90 or 97 <= byte <= 122 for byte in kind):
+            anomaly(f"Invalid PNG chunk type {label} at offset {offset}")
+        if not valid_crc:
+            anomaly(f"CRC mismatch for {label} at offset {offset}")
         if count == 1 and kind != b"IHDR":
-            anomalies.append("First chunk is not IHDR")
+            anomaly("First chunk is not IHDR")
         if kind == b"IHDR":
             if length != 13:
-                anomalies.append("IHDR length is not 13")
+                anomaly("IHDR length is not 13")
             else:
                 w, h, depth, colour, compression, filtering, interlace = struct.unpack_from(">IIBBBBB", data, offset + 8)
                 dimensions = {"width": w, "height": h, "bit_depth": depth, "colour_type": colour,
                               "compression": compression, "filter": filtering, "interlace": interlace}
                 if w == 0 or h == 0:
-                    anomalies.append("Zero PNG dimension")
+                    anomaly("Zero PNG dimension")
         if kind == b"IDAT":
             if idat_closed:
-                anomalies.append("Non-consecutive IDAT chunks observed")
+                anomaly("Non-consecutive IDAT chunks observed")
             idat_seen = True
         elif idat_seen:
             idat_closed = True
@@ -66,16 +77,23 @@ def inspect_png(data: bytes) -> dict:
         if kind == b"IEND":
             ended = True
             if length != 0:
-                anomalies.append("IEND payload is not empty")
+                anomaly("IEND payload is not empty")
             break
     if not idat_seen:
-        anomalies.append("No IDAT chunk observed")
+        anomaly("No IDAT chunk observed")
     if not ended:
-        anomalies.append("IEND not reached")
+        anomaly("IEND not reached")
+    trailing_bytes = len(data) - offset if ended else None
+    if trailing_bytes:
+        anomalies_seen += 1
+        # Keep this lead even when earlier chunk anomalies filled the display cap.
+        anomalies.insert(0, f"Trailing data: {trailing_bytes} bytes after IEND at offset {offset}")
+        del anomalies[80:]
     return {"dimensions": dimensions, "chunks": chunks, "chunks_seen": min(count, 4096),
             "iend_reached": ended, "trailing_offset": offset if ended else None,
-            "trailing_bytes": len(data) - offset if ended else None,
-            "anomalies": anomalies[:80], "selection_truncated": count > 256,
+            "trailing_bytes": trailing_bytes, "scan_limited": count > 4096,
+            "anomalies": anomalies, "anomalies_seen": anomalies_seen,
+            "selection_truncated": count > 256 or anomalies_seen > len(anomalies),
             "limit": "Chunk and CRC inspection only; image data is never decompressed. Multiple consecutive IDAT chunks are valid."}
 
 
@@ -163,18 +181,37 @@ def inspect_pcap(data: bytes) -> dict:
             "timestamp_resolution": "nanoseconds" if nano else "microseconds", "snaplen": snaplen,
             "link_type_field": network, "packet_records": packets, "first_record_timestamp": first,
             "last_record_timestamp": last, "anomalies": anomalies, "selection_truncated": cursor < len(data),
+            "inspected_bytes": cursor, "total_bytes": len(data),
             "limit": "Record metadata only; packets are not replayed, resolved, or dissected."}
+
+
+def container_selection_notes(kind: str, structure: dict) -> list[str]:
+    if not structure["selection_truncated"]:
+        return []
+    if kind == "png":
+        notes = [f"Kept {len(structure['chunks'])} of {structure['chunks_seen']} inspected PNG chunks (selection limit 256)."]
+        if structure["scan_limited"]:
+            notes.append("Chunk scan stopped at 4096; the total chunk count is unknown.")
+        if structure["anomalies_seen"] > len(structure["anomalies"]):
+            notes.append(f"Kept {len(structure['anomalies'])} of {structure['anomalies_seen']} observed anomalies (selection limit 80).")
+        return notes
+    if kind == "zip":
+        return [f"Kept {len(structure['entries'])} of {structure['entry_count']} ZIP directory entries (selection limit 100; risk entries first)."]
+    return [f"Inspected {structure['packet_records']} PCAP records covering {structure['inspected_bytes']} of "
+            f"{structure['total_bytes']} bytes; the 100000-record scan limit was reached and the total record count is unknown."]
 
 
 def collect_forensics(report: Report, source: FileInput, runner: Runner) -> None:
     stats = byte_statistics(source.data)
-    report.add("F001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats, refs=["E001"])
+    report.add("F001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats,
+               refs=["E001"], notes=sampling_notes(stats))
     kind = source.profile["format_hint"]
     parsers = {"png": inspect_png, "zip": inspect_zip, "pcap": inspect_pcap}
     if kind in parsers:
         try:
             structure = parsers[kind](source.data)
-            report.add("F002", "Container structure", "partial" if structure["selection_truncated"] else "complete", structure, refs=["E001"])
+            report.add("F002", "Container structure", "partial" if structure["selection_truncated"] else "complete", structure,
+                       refs=["E001"], notes=container_selection_notes(kind, structure))
         except (ValueError, struct.error, zipfile.BadZipFile, NotImplementedError) as exc:
             report.add("F002", "Container structure", "failed", {"error": str(exc)}, refs=["E001"])
     else:

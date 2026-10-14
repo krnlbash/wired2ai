@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from wired2ai.files import extract_strings, snapshot_input
+from wired2ai.files import common_file, extract_strings, snapshot_input
 from wired2ai.report import Report, fence, redact_text
 from wired2ai.runner import Runner
 
@@ -54,6 +54,22 @@ class SnapshotTests(unittest.TestCase):
         strings = extract_strings(blob)["strings"]
         self.assertTrue(any(item["offset"] == 1 and item["text"] == "flag{ascii}" for item in strings))
         self.assertTrue(any(item["encoding"] == "utf-16le" and item["text"] == "secret_hint" for item in strings))
+
+    def test_string_partial_notes_and_scan_limit(self):
+        for count in (81, 2001):
+            with self.subTest(count=count), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "fixture"
+                path.write_bytes(b"\x01".join(f"fixture{i:04}".encode() for i in range(count)))
+                with snapshot_input(path, path.stat().st_size) as source:
+                    report = Report("re", source.profile, {})
+                    common_file(report, source, Runner())
+                check = next(c for c in report.checks if c["id"] == "C004")
+                self.assertEqual(check["status"], "partial")
+                self.assertIn(f"Kept 80 of {min(2000, count)}", " ".join(check["notes"]))
+                self.assertEqual(check["data"]["scan_limited"], count > 2000)
+                if count > 2000:
+                    self.assertIn("total candidate count is unknown", " ".join(check["notes"]))
+                self.assertIn(f"Kept 80 of {min(2000, count)}", report.markdown(8192))
 
 
 class RunnerTests(unittest.TestCase):
@@ -140,3 +156,10 @@ class ReportTests(unittest.TestCase):
         report.add("R001", "One", "complete")
         with self.assertRaises(ValueError):
             report.add("R001", "Two", "complete")
+
+    def test_native_partial_reason_reaches_check_notes(self):
+        report = Report("re", {}, {})
+        ref = report.observation("command", {"status": "partial", "output_truncated": True})
+        check = report.add("R001", "Native output", "partial", refs=[ref])
+        self.assertIn("output limit", " ".join(check["notes"]))
+        self.assertIn(ref, " ".join(check["notes"]))

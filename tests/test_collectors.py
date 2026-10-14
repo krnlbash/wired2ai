@@ -13,7 +13,7 @@ from pathlib import Path
 from wired2ai.binary import elf_mitigations, inspect_pe, parse_symbols
 from wired2ai.crypto import byte_statistics, encoding_candidates, rsa_parameters, collect_crypto
 from wired2ai.files import common_file, snapshot_input
-from wired2ai.forensics import inspect_pcap, inspect_png, inspect_zip
+from wired2ai.forensics import collect_forensics, inspect_pcap, inspect_png, inspect_zip
 from wired2ai.report import Report
 from wired2ai.runner import Runner
 
@@ -83,6 +83,29 @@ class CryptoTests(unittest.TestCase):
         result = encoding_candidates(b"YWJjZA===")
         self.assertFalse(result["candidates"])
 
+    def test_encoding_selection_boundary_and_omitted_counts(self):
+        for count in (12, 13, 30):
+            with self.subTest(count=count):
+                data = b"\n".join(base64.b64encode(f"fixture-{i:02}".encode()) for i in range(count))
+                result = encoding_candidates(data)
+                self.assertEqual(len(result["candidates"]), min(12, count))
+                self.assertEqual(result["candidates_seen"], count)
+                self.assertEqual(result["selection_truncated"], count > 12)
+                self.assertFalse(result["sample_truncated"])
+
+    def test_encoding_partial_notes_distinguish_selection_and_sample(self):
+        cases = [(b"Zml4dHVyZQ==\n" * 13, "Kept 12 of 13"), (b"!" * 65537, "Scanned 65536 of 65537")]
+        for data, explanation in cases:
+            with self.subTest(explanation=explanation), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "fixture.txt"
+                path.write_bytes(data)
+                with snapshot_input(path, len(data)) as source:
+                    report = Report("crypto", source.profile, {})
+                    collect_crypto(report, source, Runner())
+                check = next(c for c in report.checks if c["id"] == "K002")
+                self.assertEqual(check["status"], "partial")
+                self.assertIn(explanation, " ".join(check["notes"]))
+
     def test_parameters_not_executed(self):
         result = rsa_parameters(b"n=49\ne=3\nc=80\n__import__('os').system('false')")
         self.assertEqual(result["parameters"]["n"]["decimal"], "49")
@@ -139,16 +162,60 @@ class CryptoTests(unittest.TestCase):
 class ForensicsTests(unittest.TestCase):
     def test_png_consecutive_idat_and_trailing_data(self):
         data = png_fixture()
+        self.assertEqual(inspect_png(data)["anomalies"], [])
         result = inspect_png(data + b"TRAILER")
-        self.assertEqual(result["anomalies"], [])
+        self.assertTrue(any("7 bytes after IEND" in item for item in result["anomalies"]))
+        self.assertFalse(any("Non-consecutive" in item for item in result["anomalies"]))
         self.assertEqual(result["trailing_bytes"], 7)
         self.assertEqual(result["trailing_offset"], len(data))
+
+    def test_png_invalid_chunk_type_is_lossless(self):
+        for kind in (b"bKG\xff", b"bK\x00\x1b", b"bK\\G"):
+            with self.subTest(kind=kind):
+                fixture = png_fixture()
+                data = fixture[:-12] + png_chunk(kind, b"fixture") + fixture[-12:]
+                result = inspect_png(data)
+                chunk = next(c for c in result["chunks"] if c.get("type_hex") == kind.hex())
+                self.assertNotIn("\ufffd", chunk["type"])
+                self.assertNotIn("\x1b", chunk["type"])
+                self.assertIn("\\x", chunk["type"])
+                self.assertTrue(any("Invalid PNG chunk type" in value for value in result["anomalies"]))
+
+    def test_png_trailer_survives_markdown_check_truncation(self):
+        fixture = png_fixture()
+        # Force a large chunk list before IEND so the detail excerpt is truncated.
+        data = fixture[:-12] + png_chunk(b"tEXt", b"x") * 260 + fixture[-12:] + b"TRAILER"
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fixture.png"
+            path.write_bytes(data)
+            with snapshot_input(path, len(data)) as source:
+                report = Report("forensics", source.profile, {})
+                common_file(report, source, Runner())
+                collect_forensics(report, source, Runner())
+            check = next(c for c in report.checks if c["id"] == "F002")
+            self.assertEqual(check["status"], "partial")
+            self.assertIn("Kept 256 of 264", " ".join(check["notes"]))
+            markdown = report.markdown(8192)
+            self.assertLessEqual(len(markdown.encode()), 8192)
+            self.assertIn("7 bytes after IEND", markdown)
+            self.assertIn(f"offset {len(data)-7}", markdown)
+            self.assertIn("F002", markdown)
+            self.assertIn("E001", markdown)
 
     def test_png_bad_crc(self):
         data = bytearray(png_fixture())
         data[29] ^= 1
         result = inspect_png(data)
         self.assertTrue(any("CRC mismatch" in value for value in result["anomalies"]))
+
+    def test_png_anomaly_cap_preserves_trailing_lead(self):
+        fixture = png_fixture()
+        data = fixture[:-12] + png_chunk(b"bKG\xff") * 90 + fixture[-12:] + b"TRAILER"
+        result = inspect_png(data)
+        self.assertEqual(result["anomalies_seen"], 91)
+        self.assertEqual(len(result["anomalies"]), 80)
+        self.assertTrue(result["selection_truncated"])
+        self.assertIn("7 bytes after IEND", result["anomalies"][0])
 
     def test_png_out_of_bounds(self):
         with self.assertRaises(ValueError):

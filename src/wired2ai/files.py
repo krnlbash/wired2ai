@@ -104,9 +104,22 @@ def extract_strings(data: bytes, maximum: int = 80) -> dict:
                                "priority_hint": relevant})
     candidates.sort(key=lambda item: (not item["priority_hint"], item["offset"], item["encoding"]))
     return {"strings": candidates[:maximum], "candidates_seen": len(candidates),
+            "selection_limit": maximum,
             "selection_truncated": len(candidates) > maximum or scan_limited,
             "scan_limited": scan_limited, "max_characters_per_string": 256,
             "note": "Offsets refer to the complete input snapshot. Selection is heuristic; long strings are split into bounded segments."}
+
+
+def string_selection_notes(strings: dict) -> list[str]:
+    if not strings.get("selection_truncated"):
+        return []
+    notes = [f"Kept {len(strings['strings'])} of {strings['candidates_seen']} considered string candidates "
+             f"(selection limit {strings['selection_limit']})."]
+    if strings["scan_limited"]:
+        notes.append("At least one encoding reached the 2000-candidate scan limit; the total candidate count is unknown.")
+    else:
+        notes.append("All input bytes were searched; only the selected result list was capped.")
+    return notes
 
 
 def common_file(report: Report, source: FileInput, runner: Runner) -> dict:
@@ -125,5 +138,5 @@ def common_file(report: Report, source: FileInput, runner: Runner) -> dict:
                "hex": source.data[:64].hex(" ")}, refs=["E001"])
     strings = extract_strings(source.data)
     report.add("C004", "Selected strings and offsets", "partial" if strings["selection_truncated"] else "complete",
-               strings, refs=["E001"])
+               strings, refs=["E001"], notes=string_selection_notes(strings))
     return strings

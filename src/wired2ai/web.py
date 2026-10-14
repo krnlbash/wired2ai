@@ -15,6 +15,16 @@ from .report import Report
 from .runner import Runner
 
 SECRET_HEADERS = {"set-cookie", "cookie", "authorization", "proxy-authorization", "www-authenticate"}
+CURL_ERRORS = {
+    6: "could not resolve host",
+    7: "connection refused or host unreachable",
+    28: "operation timed out",
+    35: "TLS handshake failed",
+    52: "empty reply from server",
+    56: "failure receiving network data",
+    60: "TLS certificate verification failed",
+    63: "response body exceeded the size limit",
+}
 
 
 def validate_url(url: str) -> str:
@@ -94,6 +104,7 @@ class Response:
     body: bytes
     refs: list[str]
     note: str = ""
+    returncode: int | None = None
 
     def header(self, name: str) -> str:
         return next((value for key, value in self.headers if key == name.lower()), "")
@@ -138,6 +149,15 @@ class WebClient:
                 error = str(exc)
             else:
                 error = ""
+            parse_error = error
+            if result.returncode in CURL_ERRORS:
+                error = f"curl exit {result.returncode}: {CURL_ERRORS[result.returncode]}"
+            elif result.output_truncated:
+                error = "Combined curl output limit reached; response is incomplete"
+            elif result.status == "timeout":
+                error = "Process time limit reached before curl completed"
+            elif result.status == "unavailable":
+                error = "curl is not installed"
             status = result.status
             if result.returncode == 28:
                 status = "timeout"
@@ -158,11 +178,12 @@ class WebClient:
                 "body_excerpt_bytes": len(body), "body_excerpt_sha256": hashlib.sha256(body).hexdigest(),
                 "body_complete": status == "complete", "duration_ms": result.duration_ms,
                 "returncode": result.returncode, "error": error,
+                "http_parse_error": parse_error, "output_truncated": result.output_truncated,
                 "stderr": result.stderr.replace(url, display_url(url)),
                 "body_retention": "Raw body not exported. Only selected structural observations are retained.",
             })
             refs.append(ref)
-            response = Response(url, status, code, headers, body, refs, error)
+            response = Response(url, status, code, headers, body, refs, error, returncode=result.returncode)
             if follow and code in {301, 302, 303, 307, 308} and response.header("location"):
                 if status != "complete":
                     return response
@@ -248,14 +269,16 @@ def collect_web(report: Report, target: str, runner: Runner, workdir: Path, prob
                          scope_directory=client.base_path, probe_paths_enabled=probe_paths)
     entry = client.get(client.target)
     report.add("W001", "HTTP response and bounded redirect chain", entry.status,
-               {"final_url": display_url(entry.url), "http_status": entry.http_status, "note": entry.note}, refs=entry.refs)
+               {"final_url": display_url(entry.url), "http_status": entry.http_status, "note": entry.note}, refs=entry.refs,
+               notes=[entry.note] if entry.note else [])
     names = {name for name, _ in entry.headers}
     interesting = {name: entry.header(name) for name in ("content-type", "server", "x-powered-by", "content-security-policy",
                   "strict-transport-security", "x-content-type-options", "x-frame-options") if name in names}
     report.add("W002", "Response header observations", entry.status if entry.http_status is not None else "skipped",
                {"selected_headers": interesting,
                 "unobserved_headers": [name for name in ("content-security-policy", "x-content-type-options") if name not in names]},
-               refs=entry.refs, notes=["Header presence/absence alone is not a vulnerability verdict; headers may differ across endpoints."])
+               refs=entry.refs, notes=["Header presence/absence alone is not a vulnerability verdict; headers may differ across endpoints.",
+                                      *([entry.note] if entry.note else [])])
     if entry.http_status is not None and "html" in entry.header("content-type").lower():
         parser = HTMLSignals()
         try:
@@ -263,7 +286,8 @@ def collect_web(report: Report, target: str, runner: Runner, workdir: Path, prob
             report.add("W003", "HTML structure", entry.status,
                        {"title": parser.title, "forms": parser.forms, "script_sources": parser.scripts,
                         "comment_count": parser.comment_count, "charset_assumption": "UTF-8 with replacement"}, refs=entry.refs,
-                       notes=["Bounded initial HTML only. JavaScript is not executed; forms and links are not followed."])
+                       notes=["Bounded initial HTML only. JavaScript is not executed; forms and links are not followed.",
+                              *([entry.note] if entry.note else [])])
         except ValueError as exc:
             report.add("W003", "HTML structure", "failed", {"error": str(exc)}, refs=entry.refs)
     else:
@@ -271,6 +295,10 @@ def collect_web(report: Report, target: str, runner: Runner, workdir: Path, prob
     if not probe_paths:
         report.add("W004", "Directory-relative robots.txt", "skipped", notes=["Enable --probe-paths to make additional scoped GET requests."])
         report.add("W005", "Git/environment exposure indicators", "skipped", notes=["Enable --probe-paths; no automatic repository download or secret export."])
+    elif entry.http_status is None and entry.returncode in {6, 7}:
+        note = f"Main request failed ({entry.note}); probes not attempted because the origin could not be reached."
+        report.add("W004", "Directory-relative robots.txt", "skipped", refs=entry.refs, notes=[note])
+        report.add("W005", "Git/environment exposure indicators", "skipped", refs=entry.refs, notes=[note])
     else:
         robots = client.get(urljoin(client.base, "robots.txt"), follow=False)
         directives = []
@@ -282,13 +310,21 @@ def collect_web(report: Report, target: str, runner: Runner, workdir: Path, prob
                         break
         report.add("W004", "Directory-relative robots.txt", robots.status,
                    {"http_status": robots.http_status, "directives": directives, "note": robots.note}, refs=robots.refs,
-                   notes=["Only /robots.txt at the origin root has standard robots semantics; a scoped subdirectory file is just an artifact. Paths are not crawled."])
+                   notes=["Only /robots.txt at the origin root has standard robots semantics; a scoped subdirectory file is just an artifact. Paths are not crawled.",
+                          *([robots.note] if robots.note else [])])
         baseline = client.get(urljoin(client.base, ".wired2ai-missing-" + secrets.token_hex(8)), follow=False)
         git = client.get(urljoin(client.base, ".git/HEAD"), follow=False)
         env = client.get(urljoin(client.base, ".env"), follow=False)
         status = "complete" if all(item.status == "complete" for item in (baseline, git, env)) else "partial"
+        notes = ["HTTP 200 alone is never called a leak. A content match remains an indicator for manual verification, not proof of a readable repository or sensitive secrets."]
+        if status == "partial":
+            completed = sum(item.status == "complete" for item in (baseline, git, env))
+            notes.append(f"Completed {completed} of 3 exposure/control requests.")
+            notes.extend(f"{name}: {item.status}; {item.note or 'see referenced HTTP evidence'}."
+                         for name, item in (("Missing-path control", baseline), ("Git HEAD", git), ("Environment", env))
+                         if item.status != "complete")
         report.add("W005", "Git/environment exposure indicators", status,
                    {"git_head": exposure_assessment(git, baseline, "git"), "environment": exposure_assessment(env, baseline, "env")},
                    refs=baseline.refs + git.refs + env.refs,
-                   notes=["HTTP 200 alone is never called a leak. A content match remains an indicator for manual verification, not proof of a readable repository or sensitive secrets."])
+                   notes=notes)
     report.limits["http_requests_made"] = client.requests
