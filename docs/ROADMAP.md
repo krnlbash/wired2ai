@@ -7,6 +7,7 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 | --- | --- | --- |
 | 0.1.0 alpha | Five small category modules, local reports, bounds and provenance | Local regression suite, usable package and honest coverage documentation |
 | 0.1.0a2 | Kali-driven reporting fixes: curl reasons, PNG leads, explicit partial counts | Local regression suite and package validation; Kali rerun pending |
+| 0.2.0a1 | First forensics expansion: bounded PCAPNG 1.0 metadata and safe exports | Installed-package regression suite, reproducible synthetic capture; Kali/real-capture acceptance pending |
 | 0.1.0 stable / 0.1.x | Kali validation, parser compatibility fixes, sharper failure reporting | Reproduced installation on a clean Kali VM, recorded doctor output, no unresolved critical regression |
 | 0.2.0 | Deeper forensics/RE: PCAPNG, selected packet dissection, improved PE detail | Bounded malformed-input fixtures and useful evidence beyond the alpha |
 | 0.3.0 | Better web/crypto: explicit custom CA support, stronger soft-404 handling, richer crypto formats | Negative controls, no secret-export regression, reproducible examples |
@@ -15,7 +16,8 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 
 ## Next concrete issues
 
-1. Rerun 0.1.0a2 on Kali, including ExifTool and the changed reporting cases.
+1. Validate the current 0.2.0a1 package on Kali when the maintainer is ready,
+   including the inherited 0.1.0a2 fixes, ExifTool and PCAPNG cases.
    The maintainer's 0.1.0a1 validation is recorded in `docs/VALIDATION.md`;
    retain version-specific results and inspect the JSON/Markdown contents.
 2. Add the first false-positive or missed-observation regression from a real,
@@ -25,7 +27,14 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
    LLM, compare the same model/settings with and without the report; do not
    claim reduced hallucination without measurement.
 4. Tighten redaction and schema contracts before expanding collectors.
-5. Add one high-value forensics or RE collector per reviewed change.
+5. Next expansion candidate: improve PE detail using redistributable fixtures.
+   Packet dissection remains a separate future step with its own export policy.
+
+0.2.0a1 is the first incremental part of the 0.2.0 milestone, not completion of
+that milestone or a stable release. Advancing development does not close the
+pending Kali validation gate. Test real dumpcap captures with multiple interfaces
+and compare counts/timestamps against an independent reader before making broader
+compatibility claims.
 
 The earlier 200-entry catalog is a planning backlog. It is not a shipped feature
 count or an obligation to implement every proposed check.

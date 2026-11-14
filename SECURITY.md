@@ -41,6 +41,22 @@ forms, authorization values and private PEM blocks are masked best effort.
 Environment probe values are omitted wholesale. Source paths, binary strings,
 EXIF data and other metadata can still contain sensitive information.
 
+Recognized PCAPNG inputs have a separate metadata-only export policy. Generic
+header/string previews, native format/ExifTool extraction and crypto payload
+previews are suppressed even with a category override. The built-in parser
+exports numeric structure and offsets, not packet bodies, text options, name
+resolution records or decryption-secret values. It counts decryption-secrets
+blocks and records their declared lengths. This policy also applies when the
+PCAPNG parser fails or encounters an unsupported version; it is not contingent
+on recognizing a particular key format. File names, hashes, timestamps and
+other numeric metadata are still shared. A file with a damaged/missing PCAPNG
+signature is not covered by this format-specific policy.
+
+PCAPNG traversal and retained details have separate hard caps. Unknown block
+bodies are skipped after framing checks. Supported structures with inconsistent
+bounds fail without attempting recovery. No captured packet is replayed, resolved
+or dissected. The parser runs in-process; these bounds are not an OS sandbox.
+
 Evidence records are sanitized and bounded; they are not a forensic evidence
 archive. Keep original artifacts separately. Reading a source can affect atime.
 

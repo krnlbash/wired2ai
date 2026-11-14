@@ -11,6 +11,7 @@ with that report for independent replay.
 | 0.1.0a1 original | Ubuntu 24.04.3, Python 3.12.14; 2026-10-11 UTC | Installed package: 59 tests passed, no skips |
 | 0.1.0a1 original, then local curl patch | Kali rolling, Python 3.14.7; maintainer report dated 2026-10-15, Asia/Karachi | Maintainer reports 59/59 original tests, then 60/60 with the curl diagnostic regression |
 | 0.1.0a2 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-14 UTC (2026-10-15 Asia/Karachi) | Fresh installed package: 72 tests passed, no skips; Kali rerun pending |
+| 0.2.0a1 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-20 UTC | Fresh installed package: 94 tests passed, no skips; Kali and independent PCAPNG-reader comparison pending |
 
 ## Environment details
 
@@ -27,6 +28,57 @@ with that report for independent replay.
 
 The Kali installation method does not change the maintainer's publishing
 preference: all GitHub updates and releases use the browser.
+
+## 0.2.0a1 development verification
+
+Built a wheel offline from the changed source with no runtime dependencies,
+installed it into a fresh virtual environment, and ran the suite from outside
+the source directory with `PYTHONPATH` unset. The import path was the fresh
+environment's `site-packages`.
+
+```text
+wired2ai 0.2.0a1
+Ran 94 tests in 2.212s
+OK
+```
+
+All 94 tests passed with no skips. The 22 added PCAPNG test methods cover:
+
+- A literal section-header fixture, both byte orders, mixed-endian sections,
+  section-local interface resets, multiple interfaces and declared boundaries.
+- Decimal/binary resolutions, negative offsets, 64-bit ticks, extreme allowed
+  resolution exponents and exact integer arithmetic. File order is distinguished
+  from chronological order; Simple Packet Blocks have no invented timestamp.
+- Enhanced, Simple and obsolete Packet Blocks; inconsistent length observations;
+  missing interfaces; malformed option lengths and duplicate timestamp options.
+- Every nonempty truncated prefix of a small supported capture, corrupted
+  lengths/trailers/magic and attacker-controlled oversized declarations.
+- Actual traversal to the 100,000-block cap with distinct unknown types; section,
+  interface, per-block option and global option caps; retained-sample counts.
+- Opaque/decryption-secrets block omission and complete report export checks
+  across auto/forensics/crypto/re/pwn category selections. The native runner is
+  forbidden in this test to verify that generic collectors cannot bypass the
+  PCAPNG metadata-only gate.
+- CLI failed/unsupported/partial statuses, strict exit behavior and a compact
+  capture summary within an 8 KiB Markdown budget.
+
+The installed CLI generated both committed example reports. Crypto produced
+seven complete checks and one not-applicable check. PCAPNG produced four complete
+checks and three explicitly skipped raw/native collectors, with two packet
+records across two interfaces, 138 captured bytes, all 288 input bytes inspected,
+no anomalies and no decryption-secrets blocks. Regenerating the synthetic capture
+produced identical bytes and SHA-256:
+
+```text
+d51eefc5f087c47f0c16b5d46bb49fb0e7e1e1d95e00c001babbbb447d01766f
+```
+
+The demo contains synthetic Ethernet/IPv4/UDP bytes; this parser does not dissect
+those protocols. No real traffic was captured or replayed. The host has no
+Wireshark/capinfos/dumpcap installation, so no independent reader comparison is
+claimed. The previous Kali real-capture test exercised 0.1.0a1's unsupported
+status and does not validate this new parser. Duration above is one regression
+run, not a throughput or security guarantee. See [PCAPNG scope](PCAPNG.md).
 
 ## 0.1.0a2 development verification
 
@@ -68,8 +120,8 @@ This update verifies:
 
 The included synthetic crypto example was regenerated using the installed
 0.1.0a2 CLI: seven checks completed and one PEM check was not applicable.
-`examples/crypto-report/` contains that actual report. Its timestamps and tool
-versions belong to this run.
+The 0.1.0a2 archive contains that actual report. The current examples were
+regenerated with 0.2.0a1; each report records its own tool version and run time.
 
 The TLS fixture now handles an expected `ConnectionResetError` during rejection
 of its self-signed certificate. Unrelated server exceptions remain visible. No
@@ -141,7 +193,8 @@ that is separate evidence from the manual Kali run.
 | Hand-built and real PCAPNG | F002 unsupported with an explanation; six other checks completed; no crash |
 
 PNG trailing-data visibility and raw type-byte preservation are corrected in a2.
-PCAPNG remains explicitly unsupported; this update adds no parser for it.
+PCAPNG was explicitly unsupported in a1 and a2. Support starts in 0.2.0a1;
+the historical Kali result above is not a test of the new parser.
 
 ## Earlier regression coverage retained
 
@@ -156,8 +209,12 @@ These checks do not replace a corpus of independently reviewed real challenges.
 
 ## Remaining coverage and release gates
 
-- Rerun the complete 0.1.0a2 package on Kali/Python 3.14.7, including ExifTool,
-  changed notes/PNG evidence, probe skipping and the TLS test log.
+- Run the complete 0.2.0a1 package on Kali, including ExifTool, the inherited
+  a2 reporting fixes, probe skipping and the TLS test log. Record the installed
+  OS/Python/tool versions; the new work does not close the earlier Kali gate.
+- Inspect real dumpcap PCAPNG files, multiple interfaces/sections, snaplen
+  truncation and decryption-secrets block omission. Compare supported counts
+  and exact timestamps against an independent reader; retain harmless fixtures.
 - Inspect successful trusted HTTPS behavior and repeat redirect, header,
   form/script and Git HEAD content checks manually on Kali.
 - Broaden forensic fixtures: unsafe/absolute ZIP paths, encrypted and ZIP64
@@ -185,11 +242,13 @@ README. From the folder containing `pyproject.toml`, install from source and run
 .venv/bin/wired2ai doctor --json
 .venv/bin/python -m unittest discover -s tests -v
 .venv/bin/wired2ai triage examples/crypto-demo.txt --category crypto
+.venv/bin/wired2ai triage examples/pcapng-demo.pcapng --category forensics
 ```
 
-The version should be `0.1.0a2`; the suite currently contains 72 tests. Record any
+The version should be `0.2.0a1`; the suite currently contains 94 tests. Record any
 skips as reduced coverage. Repeat the PNG trailer/invalid-byte and capped-result
 cases and inspect both JSON and Markdown. Save the actual environment and test
-results before claiming that a2 has been validated on Kali. For source editing,
+results before claiming that this release has been validated on Kali. These
+steps can wait until the maintainer resumes VM testing. For source editing,
 use `.venv/bin/python -m pip install -e .`; ordinary installation copies code and
 must be repeated after edits.

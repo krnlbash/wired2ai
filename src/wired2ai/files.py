@@ -126,6 +126,14 @@ def common_file(report: Report, source: FileInput, runner: Runner) -> dict:
     ref = report.observation("file_snapshot", {"sha256": source.profile["sha256"],
                              "size_bytes": len(source.data), "method": "complete private snapshot; hashlib.sha256"})
     report.add("C001", "File identity and snapshot", "complete", source.profile, refs=[ref])
+    if source.profile["format_hint"] == "pcapng":
+        report.add("C002", "Format identification", "complete",
+                   {"description": "PCAPNG section-header signature", "signature_hint": "pcapng"}, refs=[ref],
+                   notes=["Built-in signature only; F002 checks supported structure in the forensics category."])
+        for check_id, title in (("C003", "Header bytes"), ("C004", "Selected strings and offsets")):
+            report.add(check_id, title, "skipped", notes=[
+                "PCAPNG metadata-only export: raw bytes and strings can expose packet contents, options or decryption secrets."])
+        return {"strings": []}
     result, ref = report.command(runner, ["file", "--brief", "--", str(source.path)], source.workdir)
     report.add("C002", "Native format identification", result.status,
                {"description": result.stdout.strip(), "signature_hint": source.profile["format_hint"]}, refs=[ref],

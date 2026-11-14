@@ -61,7 +61,7 @@ missing; inspect its JSON for coverage decisions.
 
 ## Current check IDs
 
-- C001–C004: snapshot identity, native format, header bytes, selected strings.
+- C001–C004: snapshot identity, format identification, header bytes, selected strings.
 - P001–P004: ELF header, mitigation indicators, declared dependencies, symbols.
 - R001–R004: corresponding RE binary observations; R005: selected string groups.
 - K001–K004: statistics, encoding candidates, literal RSA checks, public PEM/X.509 data.
@@ -71,6 +71,13 @@ missing; inspect its JSON for coverage decisions.
 P/R001 adapts to a PE header for PE inputs; P/R002 then explicitly marks detailed
 PE analysis unsupported. These alpha IDs are versioned by the report schema;
 do not assume they are the same identifiers as the earlier planning catalog.
+
+F002 now includes bounded PCAPNG 1.0 metadata. A PCAPNG magic signature routes
+`--category auto` to forensics, regardless of the filename extension. For this
+format, C002 is a built-in signature observation; C003/C004/F003 are skipped
+with a metadata-only explanation. A forced crypto category also skips
+K002–K004. There is no payload-export switch in this release.
+See [PCAPNG coverage](PCAPNG.md) for exact fields, caps and an example.
 
 ## Export behavior
 
@@ -96,6 +103,13 @@ PNG trailing data gets a separate compact highlight with check/evidence IDs,
 byte count and offset. PNG `type` escapes invalid chunk-name bytes as `\xNN`;
 `type_hex` preserves all four bytes. A trailing-data finding is a lead for
 inspection, not a claim that a flag or exploit exists.
+
+PCAPNG has a separate compact capture summary before check details, including
+inspected byte counts, supported packet counts and observed decryption-secrets
+blocks. F002 notes distinguish retained samples from stopped scans. Timestamp
+values use integer seconds plus a numerator/denominator; no float conversion or
+clock-accuracy claim is made. First/last timestamps describe file order, not
+chronological extrema. A Simple Packet Block has a null timestamp.
 
 UTF-16 string detection is heuristic and may report overlapping interpretations.
 ASCII/UTF-16 scans consider at most 2,000 candidates per encoding, select at most

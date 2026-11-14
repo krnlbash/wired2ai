@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0a1 — 2026-10-20
+
+First incremental forensics expansion; release label `v0.2.0-alpha.1`.
+
+- Add bounded PCAPNG 1.0 section, interface and packet metadata for Enhanced, Simple and obsolete Packet Blocks, including mixed-endian sections and interface ID resets.
+- Preserve raw timestamp ticks and exact seconds/fractions with decimal/binary interface resolutions and signed offsets. Simple packets retain an explicit absent timestamp.
+- Validate block framing, section boundaries, packet bounds and supported option layouts. Distinguish malformed input, unsupported versions, scan limits and retained-sample limits.
+- Add per-interface aggregate counts, byte counts, offset-bearing packet samples and length anomalies. Opaque blocks are counted with an explicit scope note.
+- Observe decryption-secrets block presence/type/length without exporting values. Suppress generic raw/native PCAPNG exports and crypto previews across category overrides.
+- Add a compact Markdown capture summary, 22 PCAPNG regression/integration tests and a deterministic two-interface synthetic capture with its generator and actual report.
+- Retain all 0.1.0a2 fixes, update browser-upload instructions and record separate validation of this package.
+
+Packet dissection, replay, address/name extraction and richer PE analysis remain
+deferred. This release adds no runtime dependency. Kali acceptance is pending;
+the maintainer's earlier Kali report remains specific to 0.1.0a1.
+
 ## 0.1.0a2 — 2026-10-15
 
 Reporting fixes following the maintainer's Kali validation of 0.1.0a1;

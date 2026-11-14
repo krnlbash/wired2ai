@@ -135,6 +135,16 @@ class Report:
         highlights = ""
         for check in report["checks"]:
             data = check["data"]
+            if check["id"] == "F002" and data.get("format") == "pcapng":
+                highlights = ("## Capture observations\n\n"
+                              f"- F002: observed {data['packet_records']} supported packet records across "
+                              f"{data['interface_count']} interfaces and {data['section_count']} sections. "
+                              f"Inspected {data['inspected_bytes']} of {data['total_bytes']} bytes; "
+                              f"{data['anomalies_seen']} structural anomalies. "
+                              f"Evidence: {', '.join(check['evidence_ids'])}.\n"
+                              f"- Decryption-secrets blocks observed: {data['decryption_secrets']['blocks']}. "
+                              "Packet contents, text options and secret values are omitted. "
+                              "See F002 notes for limits and uninterpreted blocks.\n\n")
             if check["id"] == "F002" and data.get("iend_reached") and data.get("trailing_bytes", 0) > 0:
                 highlights = ("## Notable observations\n\n"
                               f"- F002: {data['trailing_bytes']} bytes after IEND at offset {data['trailing_offset']}. "

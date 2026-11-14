@@ -1,4 +1,4 @@
-"""Command-line interface for the first wired2ai release."""
+"""Command-line interface for wired2ai."""
 
 from __future__ import annotations
 

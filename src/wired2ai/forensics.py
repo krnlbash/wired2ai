@@ -12,6 +12,7 @@ from pathlib import PurePosixPath
 
 from .crypto import byte_statistics, sampling_notes
 from .files import FileInput
+from .pcapng import UnsupportedPcapng, inspect_pcapng
 from .report import Report
 from .runner import Runner
 
@@ -186,6 +187,8 @@ def inspect_pcap(data: bytes) -> dict:
 
 
 def container_selection_notes(kind: str, structure: dict) -> list[str]:
+    if kind == "pcapng":
+        return structure["notes"]
     if not structure["selection_truncated"]:
         return []
     if kind == "png":
@@ -206,18 +209,23 @@ def collect_forensics(report: Report, source: FileInput, runner: Runner) -> None
     report.add("F001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats,
                refs=["E001"], notes=sampling_notes(stats))
     kind = source.profile["format_hint"]
-    parsers = {"png": inspect_png, "zip": inspect_zip, "pcap": inspect_pcap}
+    parsers = {"png": inspect_png, "zip": inspect_zip, "pcap": inspect_pcap, "pcapng": inspect_pcapng}
     if kind in parsers:
         try:
             structure = parsers[kind](source.data)
             report.add("F002", "Container structure", "partial" if structure["selection_truncated"] else "complete", structure,
                        refs=["E001"], notes=container_selection_notes(kind, structure))
+        except UnsupportedPcapng as exc:
+            report.add("F002", "Container structure", "unsupported", {"error": str(exc)}, refs=["E001"])
         except (ValueError, struct.error, zipfile.BadZipFile, NotImplementedError) as exc:
             report.add("F002", "Container structure", "failed", {"error": str(exc)}, refs=["E001"])
     else:
         report.add("F002", "Container structure", "unsupported", {"format_hint": kind},
-                   notes=["Built-in structural parsers cover PNG, bounded non-ZIP64 ZIP directories, and classic PCAP. PCAPNG and disk/memory images are deferred."])
-    if source.profile["private_key_marker"]:
+                   notes=["Built-in structural parsers cover PNG, bounded non-ZIP64 ZIP directories, classic PCAP and PCAPNG 1.0 metadata. Disk/memory images are deferred."])
+    if kind == "pcapng":
+        report.add("F003", "Metadata fields", "skipped", notes=[
+            "PCAPNG metadata-only export: generic ExifTool output is suppressed; bounded numeric metadata is in F002."])
+    elif source.profile["private_key_marker"]:
         report.add("F003", "Metadata fields", "skipped", notes=["Private-key marker: generic metadata extraction suppressed."])
     else:
         result, ref = report.command(runner, ["exiftool", "-j", "-G", "-s", str(source.path)], source.workdir)

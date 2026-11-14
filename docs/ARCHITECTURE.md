@@ -18,10 +18,11 @@ writing the JSON, evidence files and size-bounded Markdown brief.
 | `binary.py` | ELF/static mitigation observations and bounded PE header parsing |
 | `crypto.py` | Descriptive statistics, encoding derivation, literal public parameters, key containers |
 | `forensics.py` | PNG, limited ZIP directory and classic PCAP parsers; ExifTool integration |
+| `pcapng.py` | Bounded PCAPNG sections/interfaces/packet metadata, exact timestamps and numeric DSB observations |
 | `web.py` | HTTP(S) scope, redirects, metadata, HTML structure and optional probes |
 | `report.py` | Common check/evidence contract, redaction, private files and Markdown budget |
 
-There is intentionally no general-purpose plugin loader in this first release.
+There is intentionally no general-purpose plugin loader in this alpha.
 Collector interfaces can evolve before external plugins depend on them. JSON
 Schema `schemas/report.schema.json` specifies the public envelope, with flexible
 category data. No cloud provider SDK or Python runtime package is required.
@@ -37,7 +38,7 @@ category data. No cloud provider SDK or Python runtime package is required.
   not a reliable cipher classifier.
 - HTTP 200 is not an exposed-secret verdict. Git/environment checks require
   recognizable content, compare a missing-path control and retain uncertainty.
-- PNG CRCs and ZIP/PCAP structure checks are limited parser observations, not
+- PNG CRCs and ZIP/PCAP/PCAPNG structure checks are limited parser observations, not
   complete format conformance or malware detection.
 
 ## Dependency strategy
@@ -47,6 +48,10 @@ startup. Each affected collector reports `unavailable` when its tool is absent.
 `curl` is necessary for web collection; `readelf` for detailed ELF collection.
 No fallback silently substitutes a weaker result. Tool version probes are cached
 within the run. Missing ExifTool does not prevent built-in forensic parsing.
+Recognized PCAPNG inputs need no native collector: built-in signature/structure
+checks replace generic format extraction, and raw-content collectors are gated
+before category dispatch. This prevents a forced crypto category from exposing
+capture contents through encoding previews. See [PCAPNG](PCAPNG.md).
 
 Tools are looked up in a fixed system PATH, not the challenge directory or the
 inherited environment. Their output is collected through pipes. The runner
@@ -64,6 +69,8 @@ The implementation was checked against these primary references:
 - [curl error code meanings](https://curl.se/libcurl/c/libcurl-errors.html)
 - [PNG Third Edition](https://www.w3.org/TR/png-3/)
 - [Python zipfile](https://docs.python.org/3/library/zipfile.html)
+- [PCAPNG format draft -06](https://www.ietf.org/archive/id/draft-ietf-opsawg-pcapng-06.html)
+  (versioned Internet-Draft, work in progress; not a final RFC)
 
 Consult the installed tool versions and their manuals when a new platform differs
 from the tested host. A reference to a specification does not mean this alpha

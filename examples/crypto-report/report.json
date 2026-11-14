@@ -2,10 +2,10 @@
   "schema_version": "0.1",
   "tool": {
     "name": "wired2ai",
-    "version": "0.1.0a2"
+    "version": "0.2.0a1"
   },
   "category": "crypto",
-  "started_at": "2026-10-14T19:36:11.845052+00:00",
+  "started_at": "2026-10-20T10:12:51.762280+00:00",
   "target": {
     "kind": "file",
     "name": "crypto-demo.txt",
@@ -14,7 +14,7 @@
     "hash_scope": "complete snapshot",
     "format_hint": "text",
     "source_mtime_ns": 1791670108654214883,
-    "source_ctime_ns": 1792005908296019830,
+    "source_ctime_ns": 1792490225191816530,
     "ctime_meaning": "inode change time, not creation time",
     "private_key_marker": false,
     "category_selection": "explicit"
@@ -44,7 +44,7 @@
         "hash_scope": "complete snapshot",
         "format_hint": "text",
         "source_mtime_ns": 1791670108654214883,
-        "source_ctime_ns": 1792005908296019830,
+        "source_ctime_ns": 1792490225191816530,
         "ctime_meaning": "inode change time, not creation time",
         "private_key_marker": false
       }
