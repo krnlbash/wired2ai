@@ -135,6 +135,26 @@ class Report:
         highlights = ""
         for check in report["checks"]:
             data = check["data"]
+            if check["id"] in ("P001", "R001") and data.get("format") == "pe":
+                highlights = ("## PE observations\n\n"
+                              f"- {check['id']}: {data['optional_header']}, machine {data['machine_code']}, "
+                              f"{data['section_count']} sections. Static flags do not establish runtime protection. "
+                              f"Evidence: {', '.join(check['evidence_ids'])}.\n")
+            if check["id"] in ("P002", "R002") and data.get("format") == "pe":
+                tail = data["trailing_data"]
+                highlights += (f"- {check['id']}: {tail['bytes_after_sections']} bytes after section data; "
+                               f"{tail['unclassified_bytes']} remain unclassified after certificate framing checks. "
+                               "Certificate trust is unverified; trailing bytes may be legitimate.\n")
+            if check["id"] in ("P003", "R003") and data.get("format") == "pe":
+                highlights += (f"- {check['id']}: {data['symbols_observed']} ordinary import symbols observed; "
+                               f"{len(data['symbol_sample'])} retained. Check status: {check['status']}.\n")
+            if check["id"] in ("P004", "R004") and data.get("format") == "pe":
+                if data["present"]:
+                    highlights += (f"- {check['id']}: {data['nonempty_slots_observed']} nonempty exports in "
+                                   f"{data['address_slots_inspected']} inspected address slots; "
+                                   f"{len(data['exports'])} retained. Check status: {check['status']}.\n")
+                else:
+                    highlights += f"- {check['id']}: no ordinary export directory declared.\n"
             if check["id"] == "F002" and data.get("format") == "pcapng":
                 highlights = ("## Capture observations\n\n"
                               f"- F002: observed {data['packet_records']} supported packet records across "
@@ -150,6 +170,8 @@ class Report:
                               f"- F002: {data['trailing_bytes']} bytes after IEND at offset {data['trailing_offset']}. "
                               f"Evidence: {', '.join(check['evidence_ids'])}. "
                               "Inspect the trailing data; this is a triage lead, not proof of hidden content or an exploit.\n\n")
+        if highlights:
+            highlights = highlights.rstrip() + "\n\n"
         target = "## Input\n\n" + fence(json.dumps(report["target"], indent=2, ensure_ascii=False), "json") + "\n"
         ending = "\nExport limits are byte counts, not model-specific token counts. See report.json for provenance and limits.\n"
         text = intro + highlights + inventory

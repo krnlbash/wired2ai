@@ -57,6 +57,17 @@ bodies are skipped after framing checks. Supported structures with inconsistent
 bounds fail without attempting recovery. No captured packet is replayed, resolved
 or dissected. The parser runs in-process; these bounds are not an OS sandbox.
 
+PE parsing reads snapshot bytes with bounded RVA/file-offset mapping and hard
+limits on sections, import descriptors/thunks, exports, names, certificate entries
+and entropy samples. It does not load DLLs, follow forwarded exports or execute
+entry points. Invalid or ambiguous mappings fail the affected check. Unlike
+PCAPNG, generic PE strings and declared import/export names are exported, subject
+to the existing limits and best-effort redaction. They remain untrusted content.
+Certificate entries are framed, not cryptographically verified; a framed table
+does not imply a signed/trusted image. Static mitigation flags do not prove
+runtime enforcement. Windows execution, loader compatibility and malicious-sample
+coverage are not established by the synthetic tests.
+
 Evidence records are sanitized and bounded; they are not a forensic evidence
 archive. Keep original artifacts separately. Reading a source can affect atime.
 

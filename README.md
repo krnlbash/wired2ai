@@ -2,7 +2,7 @@
 
 Local CTF triage with traceable evidence for analysts and LLMs.
 
-**Version: 0.2.0a1 — bounded PCAPNG triage.** Maintainer: **krnlbash**.
+**Version: 0.2.0a2 — deeper static PE triage.** Maintainer: **krnlbash**.
 Target platform: Kali Linux; Python 3.11+. The maintainer reports successful
 0.1.0a1 testing on Kali rolling with Python 3.14.7, including all 59 original
 tests and 60 after a local curl-diagnostic regression was added. Later changes,
@@ -20,8 +20,8 @@ send anything to an LLM, or guarantee that an LLM's conclusions are correct.
 | Category | Implemented | Deliberate limits |
 | --- | --- | --- |
 | Web exploitation | GET response/redirect evidence, selected headers, HTML forms/scripts, optional robots/Git HEAD/environment probes with a missing-path control | No crawler, authenticated session, JavaScript execution, fuzzing, repository download or automatic exploit validation |
-| Pwn | ELF headers, static NX/PIE/RELRO/canary indicators, declared libraries, selected exact symbol matches; basic PE headers | No `ldd`, target execution, gadget discovery or runtime protection claims |
-| Reverse engineering | ELF evidence plus grouped strings/offsets and language/runtime hints; basic PE headers | No decompiler, call graph, emulator or unpacker |
+| Pwn | ELF headers, static NX/PIE/RELRO/canary indicators, libraries and selected symbols; PE32/PE32+ headers, sections, mitigation declarations, imports/exports and trailing-data accounting | No `ldd`, target execution, gadget discovery, DLL resolution or runtime protection claims |
+| Reverse engineering | ELF/PE evidence plus grouped strings/offsets and language/runtime hints; PE named/ordinal imports, exports and forwarders | No decompiler, call graph, emulator, unpacker or signature verification |
 | Cryptography | Byte statistics, bounded one-layer hex/base64 candidates, literal RSA n/e/c sanity checks, PEM public components/X.509 metadata | No factoring service, brute force, private-key dump, trust verification or encrypted-key unlocking |
 | Digital forensics | File identity, PNG chunks/CRC/trailing data, ZIP directory risks, classic PCAP records, PCAPNG 1.0 sections/interfaces/packet metadata; generic header/strings/ExifTool where permitted | No extraction, image decompression, disk/memory-image analysis or packet dissection; PCAPNG exports metadata only |
 
@@ -33,6 +33,11 @@ generic native metadata and crypto payload previews, including category
 overrides. It reports numeric capture structure without exporting packet
 contents, text options or embedded decryption secrets. See
 [PCAPNG coverage and limits](docs/PCAPNG.md).
+
+PE parsing is built in and bounded. It distinguishes file offsets from relative
+virtual addresses, rejects ambiguous mappings, and reports import/export failures
+independently. Section entropy is a sampled statistic. Certificate-table framing
+does not establish a valid signature. See [PE coverage and limits](docs/PE.md).
 
 ## Install on Kali
 
@@ -70,6 +75,7 @@ the prepared source ZIP already excludes generated runs and local environments.
 ```bash
 .venv/bin/wired2ai triage ./challenge --category pwn --out ./runs/pwn-01
 .venv/bin/wired2ai triage ./challenge --category re --out ./runs/re-01
+.venv/bin/wired2ai triage examples/pe-demo.bin --category re --out ./runs/pe-01
 .venv/bin/wired2ai triage ./cipher.txt --category crypto --out ./runs/crypto-01
 .venv/bin/wired2ai triage ./capture.pcap --category forensics --out ./runs/forensics-01
 .venv/bin/wired2ai triage examples/pcapng-demo.pcapng --out ./runs/pcapng-01
@@ -129,6 +135,11 @@ the end of the file. Malformed supported structure is `failed`, an unsupported
 section version is `unsupported`, and capped scans or selections are `partial`.
 Opaque block bodies are counted and explicitly disclosed, not interpreted.
 
+PE reports keep a compact summary near the top of the brief: format, import/export
+counts and trailing-data accounting. Flags and imported API names are observations,
+not proof of exploitability. PE headers, layout, ordinary imports and exports each
+have their own status and E001 snapshot reference.
+
 The input is copied to a temporary private snapshot, bounded by the configured
 file-size limit. Native tools read that snapshot, not the original path. Hashes
 cover the **complete snapshot**, not a prefix. Snapshot files are removed on
@@ -166,6 +177,11 @@ Tests use Python's standard library. `gcc`, `readelf`, `openssl` and `curl` enab
 the corresponding integration tests; absent tools cause explicit test skips.
 Install `gcc` for the compiled ELF fixture. Test-generated private keys and all
 web fixtures are disposable local data.
+GNU `objdump` checks the synthetic PE fixture independently; `as`, `objcopy` and
+`ld` with PE emulations build additional static fixtures. These tools are supplied
+by binutils on the tested host and add no application runtime dependency. No test
+runs a generated PE image. Combined Kali acceptance can be done later using the
+version-specific steps in [VALIDATION.md](docs/VALIDATION.md).
 
 The GitHub CI workflow uses Ubuntu 24.04 and runs installation and tests. Check
 the repository's **Actions** tab for the actual hosted run status; the presence
@@ -175,7 +191,7 @@ of a workflow file is not evidence of a passing run. The repository includes a [
 ## Publishing through the browser
 
 The maintainer's workflow is **GitHub browser uploads for every version**.
-The browser-upload ZIP contains all 42 repository files, including
+The browser-upload ZIP contains all 51 repository files, including
 `pyproject.toml`, `.gitignore`, and `.github/workflows/ci.yml`. Extract it on
 Windows, open the extracted folder, and drag its contents into GitHub's
 **Add file → Upload files** page. `README.md`, `pyproject.toml`, and `src/`
@@ -185,8 +201,8 @@ The archive is source-only: everything inside is intended for the repository.
 Installation uses the source command above. Uploading extracted files creates
 GitHub commits; it does not import a separate local Git history or tag. Create
 the alpha tag and pre-release through GitHub's Releases page when ready.
-The Python version `0.2.0a1` corresponds to the release label
-`v0.2.0-alpha.1`. See the [browser release guide](docs/RELEASING.md) for the
+The Python version `0.2.0a2` corresponds to the release label
+`v0.2.0-alpha.2`. See the [browser release guide](docs/RELEASING.md) for the
 complete procedure and updates to later versions.
 
 This initial implementation was developed with Codex assistance; project

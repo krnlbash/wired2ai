@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "file",
+    "--brief",
+    "--",
+    "<private-workdir>/target.bin"
+  ],
+  "status": "complete",
+  "returncode": 0,
+  "stdout": "PE32+ executable (DLL) (console) x86-64, for MS Windows, 2 sections\n",
+  "stderr": "",
+  "duration_ms": 3,
+  "output_truncated": false,
+  "id": "E002",
+  "kind": "command",
+  "tool_version": "file-5.45"
+}

@@ -8,12 +8,12 @@ command-line Git.
 
 ## Upload the complete project from Windows
 
-1. Download `wired2ai-0.2.0a1-github-browser.zip` and choose **Extract All**
+1. Download `wired2ai-0.2.0a2-github-browser.zip` and choose **Extract All**
    in Windows. Extract into a new folder so files from an older package cannot
    be mixed into the upload.
 2. Open that folder. It should contain `README.md` and `pyproject.toml` directly,
    alongside `.github`, `docs`, `examples`, `schemas`, `src`, and `tests`.
-   The ZIP contains 42 files, and every file belongs in the repository.
+   The ZIP contains 51 files, and every file belongs in the repository.
 3. Open the `krnlbash/wired2ai` repository in the browser. Choose **Add file →
    Upload files**, or the existing-file upload link if GitHub shows an empty
    repository setup page.
@@ -24,7 +24,7 @@ command-line Git.
    `.github/workflows/ci.yml`, and `docs/VALIDATION.md`. The latter must not be
    nested under `examples/`. Include both `src/wired2ai/__init__.py` and
    `src/wired2ai/__main__.py`.
-6. Enter the commit message `Release 0.2.0a1: add bounded PCAPNG triage` and
+6. Enter the commit message `Release 0.2.0a2: add bounded PE analysis` and
    commit the files to `main`. If your repository requires a pull request,
    follow that branch/review flow in the browser.
 7. Confirm that the main repository page displays the README and that
@@ -51,10 +51,11 @@ files must exist in their actual folders.
 ## Create the alpha release through the browser
 
 After the upload and review, use the repository's **Releases** page to draft a
-release. Create or select the new tag `v0.2.0-alpha.1` against the intended `main`
-commit. Keep all previously published tags fixed. Use `wired2ai 0.2.0 alpha 1` as
-the title and summarize PCAPNG metadata support, metadata-only exports, the local
-94-test result and pending Kali/independent-reader acceptance. The maintainer's
+release. Create or select the new tag `v0.2.0-alpha.2` against the intended `main`
+commit. Keep all previously published tags fixed. Use `wired2ai 0.2.0 alpha 2` as
+the title and summarize static PE layout/import/export support, certificate/tail
+accounting, the local 126-test result and deferred combined Kali acceptance.
+PCAPNG support is retained, with real-capture acceptance still pending. The maintainer's
 successful historical Kali report covers 0.1.0a1.
 Mark the new release as a
 **pre-release**. Attach the source ZIP as an asset if useful, then publish when
@@ -78,11 +79,12 @@ appropriate, run meaningful tests, and record the real environment/results in
 workflow. Documentation-only packaging changes can retain the application
 version when the runtime code is unchanged.
 
-For this alpha, the installed package passed 94 tests on Ubuntu 24.04/Python 3.12.
+For this alpha, the installed package passed 126 tests on Ubuntu 24.04/Python 3.12.
 The maintainer reports 59 original tests and 60 with a local curl patch passing
 on Kali/Python 3.14.7 for 0.1.0a1. That historical result does not validate later
 changes. The prepared CI workflow runs on Ubuntu 24.04; check its actual result
-after uploading and validate the new package separately in the Kali VM.
+after uploading. The maintainer plans to validate the accumulated changes in
+one later Kali VM session; use the combined checklist in `docs/VALIDATION.md`.
 
 ## GitHub references
 

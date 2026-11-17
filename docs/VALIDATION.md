@@ -12,6 +12,7 @@ with that report for independent replay.
 | 0.1.0a1 original, then local curl patch | Kali rolling, Python 3.14.7; maintainer report dated 2026-10-15, Asia/Karachi | Maintainer reports 59/59 original tests, then 60/60 with the curl diagnostic regression |
 | 0.1.0a2 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-14 UTC (2026-10-15 Asia/Karachi) | Fresh installed package: 72 tests passed, no skips; Kali rerun pending |
 | 0.2.0a1 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-20 UTC | Fresh installed package: 94 tests passed, no skips; Kali and independent PCAPNG-reader comparison pending |
+| 0.2.0a2 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-21 UTC | Fresh installed package: 126 tests passed, no skips; combined Kali acceptance deferred |
 
 ## Environment details
 
@@ -28,6 +29,60 @@ with that report for independent replay.
 
 The Kali installation method does not change the maintainer's publishing
 preference: all GitHub updates and releases use the browser.
+
+## 0.2.0a2 development verification
+
+The next phase expands static PE triage while retaining PCAPNG and earlier
+reporting fixes. At the maintainer's request, manual VM testing is grouped into
+a later session. Developer regression checks below do not close that gate.
+
+Built the wheel offline and installed it into a fresh virtual environment.
+The test process ran outside the repository with `PYTHONPATH` unset, importing
+the package from the new environment's `site-packages`.
+
+```text
+wired2ai 0.2.0a2
+Ran 126 tests in 2.211s
+OK
+```
+
+All 126 tests passed with no skips, including 32 new PE test methods. The existing
+header-only fixture was updated to declare its header extent explicitly, matching
+the stricter supported PE admission checks. New coverage includes:
+
+- PE32/PE32+ field and thunk widths; file-backed versus virtual-only mappings;
+  overlapping mappings; entry-point absence; raw overlaps and section permissions.
+- Every truncated prefix before the synthetic fixture's last raw section byte,
+  hostile offsets/counts and optional-header/section bounds.
+- Named/ordinal imports, an unbound IAT fallback, unresolved bound IATs,
+  terminators, reserved thunk bits, unterminated/capped names and late API leads.
+- A global 4,096-thunk cap across multiple DLLs and the exact 128-descriptor
+  boundary, including verified terminators and explicit incomplete-count notes.
+- Named, unnamed and forwarded exports, empty slots, invalid ordinal indices,
+  null array RVAs, ordinal overflow, oversized counts and bounded aliases/details.
+- Certificate addresses treated as file offsets, table framing/range failures,
+  the 64-entry cap and conservative trailing-data classification.
+- Section entropy provenance, escaped section names, independent collector
+  failures and compact observations within an 8 KiB brief.
+
+GNU objdump 2.42 independently decoded both synthetic PE variants and reported
+the expected DLL/name/ordinal and forwarded-export declarations. Separate tests
+used GNU as/objcopy/ld to build PE32 and PE32+ fixtures, then parsed their header,
+entry-point and export evidence. No resulting PE file was executed. These are
+independent construction/reader checks, not broad Windows-loader validation.
+
+The installed CLI regenerated all three examples. Crypto produced seven complete
+checks and one not applicable; PCAPNG produced four complete and three deliberately
+skipped checks; PE RE triage produced nine complete checks. The PE input is 3,105
+bytes, with two sections, two imports, three nonempty exports and 17 unclassified
+trailing bytes after excluding its 16-byte framed synthetic certificate table.
+Regeneration produced byte-identical input. The fake certificate payload is not
+an Authenticode signature and was never described as trusted.
+
+This run took 2.211 seconds; that is one regression run, not a benchmark. Real
+MSVC/MinGW, packed/obfuscated, signed and malicious PE coverage remains pending,
+as does the combined Kali session. Hosted GitHub CI remains unverified here.
+See [PE scope](PE.md) for exact limits and deferred structures.
 
 ## 0.2.0a1 development verification
 
@@ -62,7 +117,7 @@ All 94 tests passed with no skips. The 22 added PCAPNG test methods cover:
 - CLI failed/unsupported/partial statuses, strict exit behavior and a compact
   capture summary within an 8 KiB Markdown budget.
 
-The installed CLI generated both committed example reports. Crypto produced
+The installed CLI generated both example reports in that release. Crypto produced
 seven complete checks and one not-applicable check. PCAPNG produced four complete
 checks and three explicitly skipped raw/native collectors, with two packet
 records across two interfaces, 138 captured bytes, all 288 input bytes inspected,
@@ -121,7 +176,7 @@ This update verifies:
 The included synthetic crypto example was regenerated using the installed
 0.1.0a2 CLI: seven checks completed and one PEM check was not applicable.
 The 0.1.0a2 archive contains that actual report. The current examples were
-regenerated with 0.2.0a1; each report records its own tool version and run time.
+regenerated with the current package; each report records its own tool version and run time.
 
 The TLS fixture now handles an expected `ConnectionResetError` during rejection
 of its self-signed certificate. Unrelated server exceptions remain visible. No
@@ -209,7 +264,7 @@ These checks do not replace a corpus of independently reviewed real challenges.
 
 ## Remaining coverage and release gates
 
-- Run the complete 0.2.0a1 package on Kali, including ExifTool, the inherited
+- Run the complete 0.2.0a2 package on Kali, including ExifTool, the inherited
   a2 reporting fixes, probe skipping and the TLS test log. Record the installed
   OS/Python/tool versions; the new work does not close the earlier Kali gate.
 - Inspect real dumpcap PCAPNG files, multiple interfaces/sections, snaplen
@@ -222,6 +277,9 @@ These checks do not replace a corpus of independently reviewed real challenges.
   ZIP64 is outside the current bounded parser's support; validate its rejection.
 - Broaden binary fixtures: non-PIE, no-RELRO, executable-stack, no-canary and
   representative PE variants; absence of one symbol is not proof of no canaries.
+- Compare PE imports/exports and section offsets on permitted MSVC/MinGW samples;
+  include signed files and packed/overlapping layouts. Verify that unsupported
+  structures and certificate trust remain explicit rather than inferred.
 - Inspect actual base64/hex K002 observations and duplicate/oversized RSA input
   behavior manually; unit tests alone do not complete that acceptance task.
 - A passing hosted GitHub Actions run remains unverified here. Check the actual
@@ -231,9 +289,9 @@ These checks do not replace a corpus of independently reviewed real challenges.
 - Time savings, model accuracy, hallucination reduction and prompt-injection
   resistance remain unmeasured. No result here supports claims about them.
 
-## Next Kali acceptance steps
+## Combined Kali acceptance session — deferred
 
-Download/extract the updated source and create a virtual environment using the
+When ready, download/extract the updated source and create a virtual environment using the
 README. From the folder containing `pyproject.toml`, install from source and run:
 
 ```bash
@@ -241,14 +299,26 @@ README. From the folder containing `pyproject.toml`, install from source and run
 .venv/bin/wired2ai --version
 .venv/bin/wired2ai doctor --json
 .venv/bin/python -m unittest discover -s tests -v
+.venv/bin/wired2ai triage /bin/ls --category pwn
+.venv/bin/wired2ai triage /bin/ls --category re
+.venv/bin/wired2ai triage examples/pe-demo.bin --category pwn
+.venv/bin/wired2ai triage examples/pe-demo.bin --category re
 .venv/bin/wired2ai triage examples/crypto-demo.txt --category crypto
 .venv/bin/wired2ai triage examples/pcapng-demo.pcapng --category forensics
 ```
 
-The version should be `0.2.0a1`; the suite currently contains 94 tests. Record any
+The version should be `0.2.0a2`; the suite currently contains 126 tests. Record any
 skips as reduced coverage. Repeat the PNG trailer/invalid-byte and capped-result
 cases and inspect both JSON and Markdown. Save the actual environment and test
 results before claiming that this release has been validated on Kali. These
 steps can wait until the maintainer resumes VM testing. For source editing,
 use `.venv/bin/python -m pip install -e .`; ordinary installation copies code and
 must be repeated after edits.
+
+The full suite includes disposable loopback HTTP/TLS fixtures for the web
+category; no public endpoint is needed. Manual web checks should use a permitted
+local challenge with known headers/forms/scripts and inspect W001–W005 contents.
+For PCAPNG, check the documented example counts/timestamps and then a real capture
+with an independent reader. For PE, compare P/R001–004 to the expectations in
+`docs/PE.md`; do not mistake a complete check or framed certificate for a security
+verdict. This one session can cover the accumulated reporting, PCAPNG and PE work.

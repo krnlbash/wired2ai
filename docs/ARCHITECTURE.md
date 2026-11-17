@@ -15,7 +15,8 @@ writing the JSON, evidence files and size-bounded Markdown brief.
 | `cli.py` | Argument validation, category routing, output paths, exit semantics |
 | `files.py` | File admission, snapshot, SHA-256, magic hints and strings |
 | `runner.py` | Trusted tool lookup, argv-only execution, versions, timeout/output bounds |
-| `binary.py` | ELF/static mitigation observations and bounded PE header parsing |
+| `binary.py` | ELF/static mitigation observations, PE dispatch and shared RE string groups |
+| `pe.py` | Bounded PE headers, RVA mapping, layout, import/export declarations and certificate framing |
 | `crypto.py` | Descriptive statistics, encoding derivation, literal public parameters, key containers |
 | `forensics.py` | PNG, limited ZIP directory and classic PCAP parsers; ExifTool integration |
 | `pcapng.py` | Bounded PCAPNG sections/interfaces/packet metadata, exact timestamps and numeric DSB observations |
@@ -34,6 +35,9 @@ category data. No cloud provider SDK or Python runtime package is required.
 - `DT_NEEDED` is a declaration, not proof a particular library will be loaded.
 - A GNU stack program header and RELRO/NOW indicators describe static properties.
   ASLR and per-function canary coverage are not established.
+- PE DLL-characteristic flags are declarations, not verified mitigation coverage.
+  An import can be unused; a forwarded export is not a resolved function. Framed
+  certificate data is not proof of a valid signature or trusted publisher.
 - A valid base64 decoding is a candidate interpretation. Entropy is descriptive,
   not a reliable cipher classifier.
 - HTTP 200 is not an exposed-secret verdict. Git/environment checks require
@@ -52,6 +56,9 @@ Recognized PCAPNG inputs need no native collector: built-in signature/structure
 checks replace generic format extraction, and raw-content collectors are gated
 before category dispatch. This prevents a forced crypto category from exposing
 capture contents through encoding previews. See [PCAPNG](PCAPNG.md).
+PE structure parsing is implemented in Python. Shared `file` identification is
+still optional; missing it does not stop PE collectors. GNU build/inspection tools
+are used only in tests, not by the PE collector. See [PE scope](PE.md).
 
 Tools are looked up in a fixed system PATH, not the challenge directory or the
 inherited environment. Their output is collected through pipes. The runner
@@ -64,6 +71,7 @@ The implementation was checked against these primary references:
 
 - [Python 3.11 subprocess](https://docs.python.org/3.11/library/subprocess.html)
 - [GNU readelf](https://sourceware.org/binutils/docs/binutils/readelf.html)
+- [Microsoft PE/COFF format](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format)
 - [OpenSSL pkey](https://docs.openssl.org/3.5/man1/openssl-pkey/)
 - [curl options and response handling](https://curl.se/docs/manpage.html)
 - [curl error code meanings](https://curl.se/libcurl/c/libcurl-errors.html)

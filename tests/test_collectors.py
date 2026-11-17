@@ -61,6 +61,7 @@ class BinaryTests(unittest.TestCase):
         data[64:68] = b"PE\0\0"
         struct.pack_into("<HHIIIHH", data, 68, 0x14c, 1, 0, 0, 0, 224, 2)
         struct.pack_into("<H", data, 88, 0x10b)
+        struct.pack_into("<I", data, 88 + 60, len(data))
         struct.pack_into("<H", data, 88 + 70, 0x140)
         data[312:317] = b".text"
         result = inspect_pe(data)

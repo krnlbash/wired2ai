@@ -68,9 +68,12 @@ missing; inspect its JSON for coverage decisions.
 - F001–F003: statistics, supported container structure, optional ExifTool metadata.
 - W001–W005: response/redirects, headers, HTML, optional robots, optional exposure indicators.
 
-P/R001 adapts to a PE header for PE inputs; P/R002 then explicitly marks detailed
-PE analysis unsupported. These alpha IDs are versioned by the report schema;
-do not assume they are the same identifiers as the earlier planning catalog.
+For PE inputs, P/R001 is the header check, P/R002 covers layout and mitigation
+declarations, P/R003 covers ordinary imports and P/R004 covers exports. A header
+admission failure skips its dependent checks; later collector failures are
+independent. R005 still groups selected strings. The envelope remains schema 0.1,
+with format-specific check data; check `tool.version` when consuming evolving
+alpha fields. These are not the IDs from the earlier planning catalog.
 
 F002 now includes bounded PCAPNG 1.0 metadata. A PCAPNG magic signature routes
 `--category auto` to forensics, regardless of the filename extension. For this
@@ -78,6 +81,11 @@ format, C002 is a built-in signature observation; C003/C004/F003 are skipped
 with a metadata-only explanation. A forced crypto category also skips
 K002–K004. There is no payload-export switch in this release.
 See [PCAPNG coverage](PCAPNG.md) for exact fields, caps and an example.
+
+PE names/ordinals, section permissions, entropy samples, RVA mappings, forwarders
+and certificate/trailing-data fields are documented in [PE coverage](PE.md).
+No deep-mode switch is needed. Auto category selection routes MZ candidates to
+RE; the PE parser still validates the signature and supported header structure.
 
 ## Export behavior
 
@@ -110,6 +118,14 @@ blocks. F002 notes distinguish retained samples from stopped scans. Timestamp
 values use integer seconds plus a numerator/denominator; no float conversion or
 clock-accuracy claim is made. First/last timestamps describe file order, not
 chronological extrema. A Simple Packet Block has a null timestamp.
+
+PE briefs preserve compact format/import/export/tail observations before check
+details. Counts describe the inspected scope; ordinary imports exclude deferred
+delay-import tables. Long names retain a bounded escaped prefix with a truncation
+marker. A bound IAT without an original lookup table is partial with unknown
+symbol counts. `no_match` for PE imports/exports means no ordinary directory was
+declared, not proof of no dynamic API usage. Framed certificate ranges can be
+excluded from the trailing-data count without validating their contents or trust.
 
 UTF-16 string detection is heuristic and may report overlapping interpretations.
 ASCII/UTF-16 scans consider at most 2,000 candidates per encoding, select at most

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0a2 — 2026-10-21
+
+Second incremental 0.2.0 expansion; release label `v0.2.0-alpha.2`.
+
+- Replace the basic PE-only header path with independent PE32/PE32+ header, layout, ordinary import and export checks in both pwn and RE categories.
+- Add section permissions, offset-bearing section maps, bounded entropy samples, entry-point mappings, and conservative static mitigation declarations.
+- Resolve file-backed RVAs with explicit bounds and reject overlapping/ambiguous mappings. Preserve invalid section-name bytes with escaped text and hexadecimal evidence.
+- Collect named/ordinal imports, bounded exact API leads, named/unnamed exports and forwarded-export declarations. Report unknown bound-IAT names and deferred delay/bound import tables explicitly.
+- Validate certificate-table framing using file offsets and exclude only fully framed table ranges from trailing-data accounting. No Authenticode or trust validation is claimed.
+- Add per-collector limits, partial notes and compact PE observations in the Markdown brief. A failed import/export table does not erase other completed PE checks.
+- Add 32 PE test methods, a reproducible synthetic PE fixture and example report. Compare fixture declarations with GNU objdump and parse independently linked PE32/PE32+ fixtures without executing them.
+- Retain PCAPNG support and earlier fixes. Refresh the complete browser-upload package and consolidate later Kali acceptance steps.
+
+No application runtime dependency was added. Local regression results and the
+deferred combined Kali test session are recorded separately in `docs/VALIDATION.md`.
+
 ## 0.2.0a1 — 2026-10-20
 
 First incremental forensics expansion; release label `v0.2.0-alpha.1`.

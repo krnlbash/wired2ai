@@ -2,10 +2,10 @@
   "schema_version": "0.1",
   "tool": {
     "name": "wired2ai",
-    "version": "0.2.0a1"
+    "version": "0.2.0a2"
   },
   "category": "forensics",
-  "started_at": "2026-10-20T10:12:51.833552+00:00",
+  "started_at": "2026-10-21T14:29:59.216366+00:00",
   "target": {
     "kind": "file",
     "name": "pcapng-demo.pcapng",
@@ -14,7 +14,7 @@
     "hash_scope": "complete snapshot",
     "format_hint": "pcapng",
     "source_mtime_ns": 1792490987146815799,
-    "source_ctime_ns": 1792490987146815799,
+    "source_ctime_ns": 1792591619703145732,
     "ctime_meaning": "inode change time, not creation time",
     "private_key_marker": false,
     "category_selection": "explicit"
@@ -44,7 +44,7 @@
         "hash_scope": "complete snapshot",
         "format_hint": "pcapng",
         "source_mtime_ns": 1792490987146815799,
-        "source_ctime_ns": 1792490987146815799,
+        "source_ctime_ns": 1792591619703145732,
         "ctime_meaning": "inode change time, not creation time",
         "private_key_marker": false
       }

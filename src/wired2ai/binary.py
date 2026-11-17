@@ -1,11 +1,11 @@
-"""Static ELF triage. No ldd, loading, debugging, or target execution."""
+"""Static ELF/PE triage. No ldd, loading, debugging, or target execution."""
 
 from __future__ import annotations
 
 import re
-import struct
 
 from .files import FileInput, string_selection_notes
+from .pe import collect_pe, inspect_pe
 from .report import Report
 from .runner import Runner
 
@@ -55,40 +55,10 @@ def elf_mitigations(header: str, layout: str, symbols: str, reliable_layout: boo
             "gnu_stack_evidence": stack_line}
 
 
-def inspect_pe(data: bytes) -> dict:
-    if len(data) < 64:
-        raise ValueError("Truncated DOS header")
-    offset = struct.unpack_from("<I", data, 0x3c)[0]
-    if offset > len(data) - 24 or data[offset:offset + 4] != b"PE\0\0":
-        raise ValueError("MZ marker without a valid bounded PE signature")
-    machine, sections, timestamp, _, _, opt_size, characteristics = struct.unpack_from("<HHIIIHH", data, offset + 4)
-    optional = offset + 24
-    if opt_size < 72 or optional + opt_size > len(data):
-        raise ValueError("Truncated or unsupported PE optional header")
-    magic = struct.unpack_from("<H", data, optional)[0]
-    if magic not in {0x10b, 0x20b}:
-        raise ValueError("Unsupported PE optional-header magic")
-    dll_flags = struct.unpack_from("<H", data, optional + 70)[0]
-    section_offset = optional + opt_size
-    if sections > 96 or section_offset + sections * 40 > len(data):
-        raise ValueError("Invalid or excessive PE section table")
-    names = [data[section_offset + i * 40:section_offset + i * 40 + 8].rstrip(b"\0").decode("ascii", "replace")
-             for i in range(sections)]
-    return {"machine_code": hex(machine), "optional_header": "PE32+" if magic == 0x20b else "PE32",
-            "sections": names, "coff_timestamp_untrusted": timestamp,
-            "characteristics": hex(characteristics), "dynamic_base_flag": bool(dll_flags & 0x40),
-            "nx_compat_flag": bool(dll_flags & 0x100), "cfg_flag": bool(dll_flags & 0x4000),
-            "limit": "Header flags only; no import resolution, certificate validation, or runtime verification."}
-
-
 def collect_binary(report: Report, source: FileInput, runner: Runner, strings: dict) -> None:
     prefix = "P" if report.category == "pwn" else "R"
     if source.profile["format_hint"] == "pe_candidate":
-        try:
-            report.add(prefix + "001", "PE header and declared flags", "complete", inspect_pe(source.data), refs=["E001"])
-        except ValueError as exc:
-            report.add(prefix + "001", "PE header and declared flags", "failed", {"error": str(exc)}, refs=["E001"])
-        report.add(prefix + "002", "Detailed PE analysis", "unsupported", notes=["PE imports, symbols and disassembly are outside this alpha release."])
+        collect_pe(report, source)
     elif source.profile["format_hint"] == "elf":
         header, h_ref = report.command(runner, ["readelf", "-W", "-h", str(source.path)], source.workdir)
         report.add(prefix + "001", "ELF architecture and header", header.status, {"header": header.stdout}, refs=[h_ref])
@@ -113,7 +83,7 @@ def collect_binary(report: Report, source: FileInput, runner: Runner, strings: d
     else:
         report.add(prefix + "001", "Binary format support", "unsupported",
                    {"format_hint": source.profile["format_hint"]},
-                   notes=["This release supports ELF and basic PE headers. Shared file evidence remains available."])
+                   notes=["This release supports ELF and bounded PE32/PE32+ metadata. Shared file evidence remains available."])
     if report.category == "re":
         groups = {"urls_paths": [], "runtime_hints": [], "challenge_keywords": []}
         for item in strings.get("strings", []):
