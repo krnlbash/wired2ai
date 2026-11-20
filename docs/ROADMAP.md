@@ -9,6 +9,7 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 | 0.1.0a2 | Kali-driven reporting fixes: curl reasons, PNG leads, explicit partial counts | Local regression suite and package validation; Kali rerun pending |
 | 0.2.0a1 | First forensics expansion: bounded PCAPNG 1.0 metadata and safe exports | Installed-package regression suite, reproducible synthetic capture; Kali/real-capture acceptance pending |
 | 0.2.0a2 | Static PE expansion: section layout, imports/exports, flags and certificate/tail accounting | Installed-package suite, independent objdump/linker fixtures; combined Kali acceptance deferred |
+| 0.2.0a3 | Bounded PCAP/PCAPNG packet-header summaries and consistent capture export policy | Local regression/package checks; independent reader and combined Kali acceptance deferred |
 | 0.1.0 stable / 0.1.x | Kali validation, parser compatibility fixes, sharper failure reporting | Reproduced installation on a clean Kali VM, recorded doctor output, no unresolved critical regression |
 | 0.2.0 | Deeper forensics/RE: PCAPNG, selected packet dissection, improved PE detail | Bounded malformed-input fixtures and useful evidence beyond the alpha |
 | 0.3.0 | Better web/crypto: explicit custom CA support, stronger soft-404 handling, richer crypto formats | Negative controls, no secret-export regression, reproducible examples |
@@ -17,8 +18,8 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
 
 ## Next concrete issues
 
-1. Validate the current 0.2.0a2 package together on Kali when the maintainer is
-   ready, including the inherited reporting fixes, ExifTool, PCAPNG and PE cases.
+1. Validate the current 0.2.0a3 package together on Kali when the maintainer is
+   ready, including the inherited reporting fixes, ExifTool, PCAPNG, PE and packet-header cases.
    The maintainer's 0.1.0a1 validation is recorded in `docs/VALIDATION.md`;
    retain version-specific results and inspect the JSON/Markdown contents.
 2. Add the first false-positive or missed-observation regression from a real,
@@ -28,11 +29,12 @@ represent coherent capabilities, not a schedule for generating GitHub activity.
    LLM, compare the same model/settings with and without the report; do not
    claim reduced hallucination without measurement.
 4. Tighten redaction and schema contracts before expanding collectors.
-5. Next expansion candidate: a small packet-protocol summary collector, with
-   explicit field/export limits and redistributable fixtures. Packet dissection
-   remains unimplemented; deeper PE structures need their own reviewed corpus.
+5. Next feature candidate: explicit custom CA support for permitted web targets,
+   with strict TLS/redirect tests and no automatic trust bypass. Further packet
+   decoding and deeper PE structures need independent-reader comparisons and
+   representative redistributable captures/binaries before broader claims.
 
-0.2.0a1 and a2 are incremental parts of the 0.2.0 milestone, not completion of
+0.2.0a1, a2 and a3 are incremental parts of the 0.2.0 milestone, not completion of
 that milestone or stable releases. Advancing development does not close the
 pending Kali validation gate. Test real dumpcap captures with multiple interfaces
 and compare counts/timestamps against an independent reader before making broader

@@ -4,7 +4,9 @@ The first forensics expansion turns supported PCAPNG structure into bounded
 evidence. It is useful for establishing what a capture contains before opening
 it in a packet analyzer: sections, interfaces, supported packet counts, capture
 lengths, timestamps, malformed structure and embedded decryption-secrets blocks.
-It does not identify protocols, conversations, flags or vulnerabilities.
+This F002 scope does not identify protocols, conversations or vulnerabilities.
+Starting in 0.2.0a3, a separate F004 [packet summary](PACKETS.md) adds a bounded
+header subset. No packet bodies, addresses or names are exported.
 
 ## Run the included example
 
@@ -85,7 +87,8 @@ The parser checks lengths before reading fields, including the duplicated block
 length, payload padding, known section boundaries and supported option areas.
 Duplicate or wrongly sized timestamp options fail rather than choosing a value.
 A clean option-list end without an end marker is accepted. Other option semantics
-are not validated. Unknown link types remain numeric; packets are not decoded.
+are not validated. Unknown link types remain numeric. F002 does not decode packets; F004 records
+unsupported link/header types explicitly.
 
 Timestamps retain integer ticks, whole seconds, and an exact fractional numerator
 and denominator. Decimal and binary resolutions and signed offsets are applied

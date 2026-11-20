@@ -2,10 +2,10 @@
   "schema_version": "0.1",
   "tool": {
     "name": "wired2ai",
-    "version": "0.2.0a2"
+    "version": "0.2.0a3"
   },
   "category": "re",
-  "started_at": "2026-10-21T14:29:59.276742+00:00",
+  "started_at": "2026-10-22T01:27:39.301490+00:00",
   "target": {
     "kind": "file",
     "name": "pe-demo.bin",
@@ -14,7 +14,7 @@
     "hash_scope": "complete snapshot",
     "format_hint": "pe_candidate",
     "source_mtime_ns": 1792592295389559934,
-    "source_ctime_ns": 1792592295389559934,
+    "source_ctime_ns": 1792631650508682662,
     "ctime_meaning": "inode change time, not creation time",
     "private_key_marker": false,
     "category_selection": "explicit"
@@ -44,7 +44,7 @@
         "hash_scope": "complete snapshot",
         "format_hint": "pe_candidate",
         "source_mtime_ns": 1792592295389559934,
-        "source_ctime_ns": 1792592295389559934,
+        "source_ctime_ns": 1792631650508682662,
         "ctime_meaning": "inode change time, not creation time",
         "private_key_marker": false
       }
@@ -647,7 +647,7 @@
       "returncode": 0,
       "stdout": "PE32+ executable (DLL) (console) x86-64, for MS Windows, 2 sections\n",
       "stderr": "",
-      "duration_ms": 3,
+      "duration_ms": 5,
       "output_truncated": false,
       "id": "E002",
       "kind": "command",

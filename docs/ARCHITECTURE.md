@@ -19,6 +19,7 @@ writing the JSON, evidence files and size-bounded Markdown brief.
 | `pe.py` | Bounded PE headers, RVA mapping, layout, import/export declarations and certificate framing |
 | `crypto.py` | Descriptive statistics, encoding derivation, literal public parameters, key containers |
 | `forensics.py` | PNG, limited ZIP directory and classic PCAP parsers; ExifTool integration |
+| `packets.py` | Bounded numeric packet-header summaries for admitted PCAP/PCAPNG records; no address/payload export |
 | `pcapng.py` | Bounded PCAPNG sections/interfaces/packet metadata, exact timestamps and numeric DSB observations |
 | `web.py` | HTTP(S) scope, redirects, metadata, HTML structure and optional probes |
 | `report.py` | Common check/evidence contract, redaction, private files and Markdown budget |
@@ -52,7 +53,7 @@ startup. Each affected collector reports `unavailable` when its tool is absent.
 `curl` is necessary for web collection; `readelf` for detailed ELF collection.
 No fallback silently substitutes a weaker result. Tool version probes are cached
 within the run. Missing ExifTool does not prevent built-in forensic parsing.
-Recognized PCAPNG inputs need no native collector: built-in signature/structure
+Recognized PCAP/PCAPNG inputs need no native collector: built-in signature/structure
 checks replace generic format extraction, and raw-content collectors are gated
 before category dispatch. This prevents a forced crypto category from exposing
 capture contents through encoding previews. See [PCAPNG](PCAPNG.md).
@@ -83,3 +84,14 @@ The implementation was checked against these primary references:
 Consult the installed tool versions and their manuals when a new platform differs
 from the tested host. A reference to a specification does not mean this alpha
 implements its complete validation requirements.
+
+## Capture collector integration
+
+F002 container parsers invoke an internal callback after admitting each packet
+record. F004 receives snapshot offsets and a link type, with no separate file
+read or native tool. It continues aggregate counts beyond F002 display samples,
+within its own 10,000-packet prefix. Container failure discards the accumulated
+summary. Packet-level problems retain numeric provenance and fixed error messages.
+The dedicated [packet schema](../schemas/packet-summary.schema.json) documents
+F004 data; the general report envelope remains schema 0.1. See
+[packet scope and primary references](PACKETS.md).

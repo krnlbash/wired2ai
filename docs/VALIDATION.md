@@ -13,6 +13,7 @@ with that report for independent replay.
 | 0.1.0a2 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-14 UTC (2026-10-15 Asia/Karachi) | Fresh installed package: 72 tests passed, no skips; Kali rerun pending |
 | 0.2.0a1 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-20 UTC | Fresh installed package: 94 tests passed, no skips; Kali and independent PCAPNG-reader comparison pending |
 | 0.2.0a2 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-21 UTC | Fresh installed package: 126 tests passed, no skips; combined Kali acceptance deferred |
+| 0.2.0a3 | Ubuntu 24.04.3, Python 3.12.14; 2026-10-22 UTC | Fresh installed package: 158 tests passed, no skips; manual Kali and independent packet-reader comparison deferred |
 
 ## Environment details
 
@@ -29,6 +30,61 @@ with that report for independent replay.
 
 The Kali installation method does not change the maintainer's publishing
 preference: all GitHub updates and releases use the browser.
+
+## 0.2.0a3 development verification
+
+The packet-header phase was verified locally on 2026-10-22 UTC. Manual Kali
+acceptance remains deferred at the maintainer's request. Built a wheel offline,
+installed it in a fresh virtual environment and ran tests outside the source
+repository with `PYTHONPATH` unset. The imported package was the new environment's
+`site-packages`, not the source tree.
+
+```text
+wired2ai 0.2.0a3
+Ran 158 tests in 2.509s
+OK
+```
+
+All 158 tests passed with no skips. The 32 added packet tests cover:
+
+- A literal UDP wire fixture with independently specified byte offsets/ports;
+  six supported link types, both classic-PCAP byte orders and timestamp units.
+- PCAPNG mixed-endian sections and Enhanced/Simple/obsolete Packet Block forms;
+  counts extending beyond F002's retained packet sample.
+- VLAN and IPv6-extension count/byte bounds, IPv4 options and invalid lengths,
+  fragments, IPv6 atomic/repeated fragment headers, and unsupported protocols.
+- Truncated header prefixes, declared IP bounds versus Ethernet padding,
+  incomplete captured payload with retained header evidence, UDP/TCP lengths,
+  ARP framing and ICMP common prefixes.
+- The actual 10,000/10,001-packet boundary, container scan limits, capped port/link
+  tables, continuing counts for retained keys and late packet-issue provenance.
+- Malformed containers discarding earlier header results, omission across all
+  category overrides, absence of fixture addresses/payload markers in every
+  exported file, and compact observations within an 8 KiB Markdown budget.
+
+The installed CLI regenerated four documentation examples:
+
+| Example | Actual check results |
+| --- | --- |
+| Crypto | 7 complete, 1 not applicable |
+| PCAPNG | 5 complete, 3 skipped; F004 observes two IPv4/UDP packets |
+| PE RE | 9 complete |
+| Packet PCAP | 4 complete, 3 skipped, 1 partial; eight records and three packet issues |
+
+The 647-byte packet fixture has five decoded, one fragmented, one truncated and
+one unsupported record. Six records have decoded supported headers, including
+the packet with a missing payload suffix. Ports and offsets agree with the
+fixture's declared layout. Source hashes and report/evidence references were
+checked during packaging; examples are actual CLI output, not hand-written
+expected-result files.
+
+The 2.509-second run is a regression result, not a performance benchmark. The
+host has no tcpdump, tshark or capinfos, so independent packet-reader comparison
+and broad real-capture compatibility remain pending. No network traffic was
+captured or replayed; existing web integration tests use disposable loopback
+servers. Existing ELF/PE integration checks remain in the same suite. The JSON
+data schema is included as a field contract; no external JSON Schema validator
+was installed for this run. See [packet scope](PACKETS.md) for limits.
 
 ## 0.2.0a2 development verification
 
@@ -264,7 +320,7 @@ These checks do not replace a corpus of independently reviewed real challenges.
 
 ## Remaining coverage and release gates
 
-- Run the complete 0.2.0a2 package on Kali, including ExifTool, the inherited
+- Run the complete 0.2.0a3 package on Kali, including ExifTool, the inherited
   a2 reporting fixes, probe skipping and the TLS test log. Record the installed
   OS/Python/tool versions; the new work does not close the earlier Kali gate.
 - Inspect real dumpcap PCAPNG files, multiple interfaces/sections, snaplen
@@ -305,9 +361,10 @@ README. From the folder containing `pyproject.toml`, install from source and run
 .venv/bin/wired2ai triage examples/pe-demo.bin --category re
 .venv/bin/wired2ai triage examples/crypto-demo.txt --category crypto
 .venv/bin/wired2ai triage examples/pcapng-demo.pcapng --category forensics
+.venv/bin/wired2ai triage examples/packet-demo.pcap --category forensics
 ```
 
-The version should be `0.2.0a2`; the suite currently contains 126 tests. Record any
+The version should be `0.2.0a3`; the suite currently contains 158 tests. Record any
 skips as reduced coverage. Repeat the PNG trailer/invalid-byte and capped-result
 cases and inspect both JSON and Markdown. Save the actual environment and test
 results before claiming that this release has been validated on Kali. These
@@ -321,4 +378,7 @@ local challenge with known headers/forms/scripts and inspect W001–W005 content
 For PCAPNG, check the documented example counts/timestamps and then a real capture
 with an independent reader. For PE, compare P/R001–004 to the expectations in
 `docs/PE.md`; do not mistake a complete check or framed certificate for a security
-verdict. This one session can cover the accumulated reporting, PCAPNG and PE work.
+verdict. For packet headers, compare F004 against `docs/PACKETS.md`, then compare
+permitted real captures with a current independent reader. Include Linux SLL2,
+fragments, snaplen truncation and unsupported link types. This one session can
+cover the accumulated reporting, PCAPNG, PE and packet-summary work.

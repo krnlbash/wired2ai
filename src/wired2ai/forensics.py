@@ -9,10 +9,12 @@ import struct
 import zipfile
 import zlib
 from pathlib import PurePosixPath
+from collections.abc import Callable
 
 from .crypto import byte_statistics, sampling_notes
 from .files import FileInput
 from .pcapng import UnsupportedPcapng, inspect_pcapng
+from .packets import PacketSummary
 from .report import Report
 from .runner import Runner
 
@@ -153,8 +155,10 @@ def inspect_zip(data: bytes) -> dict:
                 "limit": "Directory metadata only; no extraction, decompression, member CRC check, or password attempts."}
 
 
-def inspect_pcap(data: bytes) -> dict:
+def inspect_pcap(data: bytes, *, on_packet: Callable[[dict, int], None] | None = None) -> dict:
     magic = data[:4]
+    if magic not in {b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4", b"\x4d\x3c\xb2\xa1", b"\xa1\xb2\x3c\x4d"}:
+        raise ValueError("Classic PCAP magic is missing")
     if len(data) < 24:
         raise ValueError("Truncated classic PCAP global header")
     endian = "<" if magic in {b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1"} else ">"
@@ -162,7 +166,11 @@ def inspect_pcap(data: bytes) -> dict:
     major, minor, _, _, snaplen, network = struct.unpack_from(endian + "HHiiII", data, 4)
     if (major, minor) != (2, 4):
         raise ValueError("Unsupported classic PCAP version")
+    if network & 0x0BFF0000:
+        raise ValueError("Nonzero reserved bits in classic PCAP link-type field")
+    link_type = network & 0xFFFF
     cursor, packets, anomalies = 24, 0, []
+    anomalies_seen = 0
     first, last = None, None
     while cursor < len(data) and packets < 100000:
         if cursor + 16 > len(data):
@@ -171,19 +179,28 @@ def inspect_pcap(data: bytes) -> dict:
         if captured > len(data) - cursor - 16:
             raise ValueError(f"PCAP packet at offset {cursor} exceeds capture length")
         if captured > snaplen or captured > original or fraction >= (1000000000 if nano else 1000000):
+            anomalies_seen += 1
             if len(anomalies) < 20:
                 anomalies.append(f"Inconsistent packet length or timestamp at offset {cursor}")
         stamp = {"seconds": secs, "fraction": fraction}
         first = stamp if first is None else first
         last = stamp
+        if on_packet is not None:
+            on_packet({"record_index": packets, "offset": cursor, "payload_offset": cursor + 16,
+                       "captured_bytes": captured, "original_bytes": original,
+                       "section_index": 0, "interface_id": 0}, link_type)
         packets += 1
         cursor += 16 + captured
-    return {"version": f"{major}.{minor}", "byte_order": "little" if endian == "<" else "big",
+    return {"format": "pcap", "version": f"{major}.{minor}", "byte_order": "little" if endian == "<" else "big",
             "timestamp_resolution": "nanoseconds" if nano else "microseconds", "snaplen": snaplen,
-            "link_type_field": network, "packet_records": packets, "first_record_timestamp": first,
-            "last_record_timestamp": last, "anomalies": anomalies, "selection_truncated": cursor < len(data),
+            "link_type_field": network, "link_type": link_type,
+            "fcs_declared_bytes": 2 * (network >> 28) if network & 0x04000000 else None,
+            "packet_records": packets, "first_record_timestamp": first,
+            "last_record_timestamp": last, "anomalies": anomalies, "anomalies_seen": anomalies_seen,
+            "scan_limited": cursor < len(data),
+            "selection_truncated": cursor < len(data) or anomalies_seen > len(anomalies),
             "inspected_bytes": cursor, "total_bytes": len(data),
-            "limit": "Record metadata only; packets are not replayed, resolved, or dissected."}
+            "limit": "F002 is record metadata only; F004 reports a separate bounded header summary. No replay or resolution. FCS is declared, not verified."}
 
 
 def container_selection_notes(kind: str, structure: dict) -> list[str]:
@@ -200,8 +217,13 @@ def container_selection_notes(kind: str, structure: dict) -> list[str]:
         return notes
     if kind == "zip":
         return [f"Kept {len(structure['entries'])} of {structure['entry_count']} ZIP directory entries (selection limit 100; risk entries first)."]
-    return [f"Inspected {structure['packet_records']} PCAP records covering {structure['inspected_bytes']} of "
-            f"{structure['total_bytes']} bytes; the 100000-record scan limit was reached and the total record count is unknown."]
+    notes = []
+    if structure["scan_limited"]:
+        notes.append(f"Inspected {structure['packet_records']} PCAP records covering {structure['inspected_bytes']} of "
+                     f"{structure['total_bytes']} bytes; the 100000-record scan limit was reached and the total record count is unknown.")
+    if structure["anomalies_seen"] > len(structure["anomalies"]):
+        notes.append(f"Kept {len(structure['anomalies'])} of {structure['anomalies_seen']} PCAP anomaly details.")
+    return notes
 
 
 def collect_forensics(report: Report, source: FileInput, runner: Runner) -> None:
@@ -210,9 +232,11 @@ def collect_forensics(report: Report, source: FileInput, runner: Runner) -> None
                refs=["E001"], notes=sampling_notes(stats))
     kind = source.profile["format_hint"]
     parsers = {"png": inspect_png, "zip": inspect_zip, "pcap": inspect_pcap, "pcapng": inspect_pcapng}
+    summary = PacketSummary(source.data) if kind in {"pcap", "pcapng"} else None
+    structure = None
     if kind in parsers:
         try:
-            structure = parsers[kind](source.data)
+            structure = parsers[kind](source.data, on_packet=summary.observe) if summary else parsers[kind](source.data)
             report.add("F002", "Container structure", "partial" if structure["selection_truncated"] else "complete", structure,
                        refs=["E001"], notes=container_selection_notes(kind, structure))
         except UnsupportedPcapng as exc:
@@ -222,12 +246,21 @@ def collect_forensics(report: Report, source: FileInput, runner: Runner) -> None
     else:
         report.add("F002", "Container structure", "unsupported", {"format_hint": kind},
                    notes=["Built-in structural parsers cover PNG, bounded non-ZIP64 ZIP directories, classic PCAP and PCAPNG 1.0 metadata. Disk/memory images are deferred."])
-    if kind == "pcapng":
+    if kind in {"pcap", "pcapng"}:
         report.add("F003", "Metadata fields", "skipped", notes=[
-            "PCAPNG metadata-only export: generic ExifTool output is suppressed; bounded numeric metadata is in F002."])
+            "Capture metadata-only export: generic ExifTool output is suppressed; bounded observations are in F002/F004."])
     elif source.profile["private_key_marker"]:
         report.add("F003", "Metadata fields", "skipped", notes=["Private-key marker: generic metadata extraction suppressed."])
     else:
         result, ref = report.command(runner, ["exiftool", "-j", "-G", "-s", str(source.path)], source.workdir)
         report.add("F003", "Metadata fields", result.status, {"metadata_excerpt": result.stdout}, refs=[ref],
                    notes=["Metadata may contain personal information; inspect before sharing. ExifTool reads the temporary snapshot: filesystem timestamps there are not evidence timestamps; see C001."])
+
+    if summary is None:
+        report.add("F004", "Packet protocol summary", "not_applicable", notes=["Requires a recognized PCAP or PCAPNG capture."])
+    elif structure is None:
+        report.add("F004", "Packet protocol summary", "skipped", refs=["E001"], notes=[
+            "Container parsing failed or is unsupported; accumulated header observations were discarded (see F002)."])
+    else:
+        status, data, notes = summary.finish(structure)
+        report.add("F004", "Packet protocol summary", status, data, refs=["E001"], notes=notes)

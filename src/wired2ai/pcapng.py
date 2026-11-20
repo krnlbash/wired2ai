@@ -7,6 +7,7 @@ This is deliberately not a full conformance validator or packet dissector.
 from __future__ import annotations
 
 import struct
+from collections.abc import Callable
 
 
 SHB = 0x0A0D0D0A
@@ -44,8 +45,9 @@ def _timestamp(ticks: int, interface: dict) -> dict:
 
 
 class _Inspector:
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes, on_packet: Callable[[dict, int], None] | None = None):
         self.data = data
+        self.on_packet = on_packet
         self.sections = []
         self.interfaces = []
         self.current_interfaces = []
@@ -194,6 +196,8 @@ class _Inspector:
                 "section_index": len(self.sections) - 1, "interface_id": interface_id,
                 "offset": self.offset, "payload_offset": payload_start,
                 "captured_bytes": captured, "original_bytes": original, "timestamp": stamp}
+        if self.on_packet is not None:
+            self.on_packet(item, interface["link_type"])
         if len(self.packets) < PACKET_LIMIT:
             self.packets.append(item)
         if stamp is not None:
@@ -302,5 +306,5 @@ class _Inspector:
                          "Timestamps are exact seconds plus a rational fraction, in file order; clocks are not verified."}
 
 
-def inspect_pcapng(data: bytes) -> dict:
-    return _Inspector(data).scan()
+def inspect_pcapng(data: bytes, *, on_packet: Callable[[dict, int], None] | None = None) -> dict:
+    return _Inspector(data, on_packet).scan()

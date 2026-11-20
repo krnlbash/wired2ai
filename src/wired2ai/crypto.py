@@ -150,11 +150,11 @@ def collect_crypto(report: Report, source: FileInput, runner: Runner) -> None:
     stats = byte_statistics(source.data)
     report.add("K001", "Byte distribution", "partial" if stats["sample_truncated"] else "complete", stats,
                refs=["E001"], notes=sampling_notes(stats))
-    if source.profile["format_hint"] == "pcapng":
+    if source.profile["format_hint"] in {"pcap", "pcapng"}:
         for check_id, title in (("K002", "Encoding candidates"), ("K003", "Literal RSA parameter checks"),
                                 ("K004", "PEM public components or certificate metadata")):
             report.add(check_id, title, "skipped", notes=[
-                "PCAPNG metadata-only export applies across category overrides; use --category forensics for capture structure."])
+                "Capture metadata-only export applies across category overrides; use --category forensics for capture structure."])
         return
     if source.profile["private_key_marker"]:
         report.add("K002", "Encoding candidates", "skipped", notes=["Private-key container: payload previews suppressed."])

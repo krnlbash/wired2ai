@@ -165,6 +165,17 @@ class Report:
                               f"- Decryption-secrets blocks observed: {data['decryption_secrets']['blocks']}. "
                               "Packet contents, text options and secret values are omitted. "
                               "See F002 notes for limits and uninterpreted blocks.\n\n")
+            if check["id"] == "F002" and data.get("format") == "pcap":
+                highlights = ("## Capture observations\n\n"
+                              f"- F002: {data['packet_records']} classic PCAP records, link type {data['link_type']}. "
+                              f"Inspected {data['inspected_bytes']} of {data['total_bytes']} bytes. Evidence: E001.\n")
+            if check["id"] == "F004" and data.get("format") == "packet_summary":
+                protocols = ", ".join(f"{name}={count}" for name, count in data["transport_counts"].items()) or "none decoded"
+                highlights += (f"- F004: inspected headers in {data['packets_inspected']} of "
+                               f"{data['packet_records_available']} admitted records; transport headers: {protocols}. "
+                               f"{data['packet_issues_seen']} packets need follow-up. Status: {check['status']}. "
+                               "Counts cover the inspected prefix; ports do not establish services. Evidence: E001.\n"
+                               "- Packet bytes, addresses and names are omitted. See F004 notes for bounds and unsupported headers.\n")
             if check["id"] == "F002" and data.get("iend_reached") and data.get("trailing_bytes", 0) > 0:
                 highlights = ("## Notable observations\n\n"
                               f"- F002: {data['trailing_bytes']} bytes after IEND at offset {data['trailing_offset']}. "

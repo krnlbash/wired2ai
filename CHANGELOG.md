@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0a3 — 2026-10-22
+
+- Add F004 packet-header summaries for classic PCAP and PCAPNG: bounded Ethernet/VLAN, Linux SLL/SLL2, raw IPv4/IPv6, TCP/UDP/ICMP and ARP observations.
+- Report protocol/flag counts, directional numeric port pairs and snapshot offsets. Explicitly account for fragments, missing captured bytes, malformed and unsupported headers, and scan/detail/table caps.
+- Connect F004 to admitted container records rather than the F002 display sample; discard header summaries if container parsing later fails.
+- Apply the existing PCAPNG raw-content omission policy to classic PCAP, including category overrides and malformed captures. Payloads, addresses, names and secret values are not exported.
+- Decode classic PCAP link-type flags separately, reject reserved bits and explain capped anomaly details.
+- Add a dedicated F004 data schema, synthetic eight-record PCAP, generated report and 32 regression tests. Prior PE and PCAPNG capabilities are retained.
+
+Manual combined Kali acceptance and independent packet-reader comparison remain
+deferred; local development verification is recorded in `docs/VALIDATION.md`.
+
 ## 0.2.0a2 — 2026-10-21
 
 Second incremental 0.2.0 expansion; release label `v0.2.0-alpha.2`.

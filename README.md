@@ -2,7 +2,7 @@
 
 Local CTF triage with traceable evidence for analysts and LLMs.
 
-**Version: 0.2.0a2 — deeper static PE triage.** Maintainer: **krnlbash**.
+**Version: 0.2.0a3 — bounded packet header summaries.** Maintainer: **krnlbash**.
 Target platform: Kali Linux; Python 3.11+. The maintainer reports successful
 0.1.0a1 testing on Kali rolling with Python 3.14.7, including all 59 original
 tests and 60 after a local curl-diagnostic regression was added. Later changes,
@@ -23,16 +23,16 @@ send anything to an LLM, or guarantee that an LLM's conclusions are correct.
 | Pwn | ELF headers, static NX/PIE/RELRO/canary indicators, libraries and selected symbols; PE32/PE32+ headers, sections, mitigation declarations, imports/exports and trailing-data accounting | No `ldd`, target execution, gadget discovery, DLL resolution or runtime protection claims |
 | Reverse engineering | ELF/PE evidence plus grouped strings/offsets and language/runtime hints; PE named/ordinal imports, exports and forwarders | No decompiler, call graph, emulator, unpacker or signature verification |
 | Cryptography | Byte statistics, bounded one-layer hex/base64 candidates, literal RSA n/e/c sanity checks, PEM public components/X.509 metadata | No factoring service, brute force, private-key dump, trust verification or encrypted-key unlocking |
-| Digital forensics | File identity, PNG chunks/CRC/trailing data, ZIP directory risks, classic PCAP records, PCAPNG 1.0 sections/interfaces/packet metadata; generic header/strings/ExifTool where permitted | No extraction, image decompression, disk/memory-image analysis or packet dissection; PCAPNG exports metadata only |
+| Digital forensics | File identity, PNG chunks/CRC/trailing data, ZIP directory risks, classic PCAP/PCAPNG structure plus bounded Ethernet/SLL/raw-IP and TCP/UDP/ICMP/ARP header summaries | No extraction, image decompression, disk/memory-image analysis, payload export, reassembly or application detection |
 
 File categories share a complete snapshot SHA-256, source filesystem timestamps,
 native format identification, a 64-byte header preview and selected ASCII/UTF-16
 strings. Private-key PEM markers suppress generic header/string previews.
-PCAPNG uses built-in identification and suppresses raw header/string previews,
+PCAP and PCAPNG use built-in identification and suppress raw header/string previews,
 generic native metadata and crypto payload previews, including category
-overrides. It reports numeric capture structure without exporting packet
-contents, text options or embedded decryption secrets. See
-[PCAPNG coverage and limits](docs/PCAPNG.md).
+overrides. They report numeric capture structure and selected protocol fields without
+exporting packet bodies, addresses, text options or embedded decryption secrets.
+See [capture structure](docs/PCAPNG.md) and [packet summaries](docs/PACKETS.md).
 
 PE parsing is built in and bounded. It distinguishes file offsets from relative
 virtual addresses, rejects ambiguous mappings, and reports import/export failures
@@ -79,6 +79,7 @@ the prepared source ZIP already excludes generated runs and local environments.
 .venv/bin/wired2ai triage ./cipher.txt --category crypto --out ./runs/crypto-01
 .venv/bin/wired2ai triage ./capture.pcap --category forensics --out ./runs/forensics-01
 .venv/bin/wired2ai triage examples/pcapng-demo.pcapng --out ./runs/pcapng-01
+.venv/bin/wired2ai triage examples/packet-demo.pcap --out ./runs/packets-01
 .venv/bin/wired2ai web 'http://127.0.0.1:8000/app/' --probe-paths --out ./runs/web-01
 ```
 
@@ -134,6 +135,12 @@ packet records are retained; aggregate counts continue until a scan limit or
 the end of the file. Malformed supported structure is `failed`, an unsupported
 section version is `unsupported`, and capped scans or selections are `partial`.
 Opaque block bodies are counted and explicitly disclosed, not interpreted.
+
+Both capture formats now add F004: protocol counts, numeric port pairs, TCP flag
+counts and packet offsets. It inspects at most 10,000 packet records, retains 32
+packet details and reports incomplete/unsupported headers explicitly. Port pairs
+are not flows or application detection. Payloads and addresses are omitted;
+classic PCAP now receives the same omission policy as PCAPNG.
 
 PE reports keep a compact summary near the top of the brief: format, import/export
 counts and trailing-data accounting. Flags and imported API names are observations,
@@ -191,7 +198,7 @@ of a workflow file is not evidence of a passing run. The repository includes a [
 ## Publishing through the browser
 
 The maintainer's workflow is **GitHub browser uploads for every version**.
-The browser-upload ZIP contains all 51 repository files, including
+The browser-upload ZIP contains all 60 repository files, including
 `pyproject.toml`, `.gitignore`, and `.github/workflows/ci.yml`. Extract it on
 Windows, open the extracted folder, and drag its contents into GitHub's
 **Add file → Upload files** page. `README.md`, `pyproject.toml`, and `src/`
@@ -201,8 +208,8 @@ The archive is source-only: everything inside is intended for the repository.
 Installation uses the source command above. Uploading extracted files creates
 GitHub commits; it does not import a separate local Git history or tag. Create
 the alpha tag and pre-release through GitHub's Releases page when ready.
-The Python version `0.2.0a2` corresponds to the release label
-`v0.2.0-alpha.2`. See the [browser release guide](docs/RELEASING.md) for the
+The Python version `0.2.0a3` corresponds to the release label
+`v0.2.0-alpha.3`. See the [browser release guide](docs/RELEASING.md) for the
 complete procedure and updates to later versions.
 
 This initial implementation was developed with Codex assistance; project

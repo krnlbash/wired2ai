@@ -66,6 +66,7 @@ missing; inspect its JSON for coverage decisions.
 - R001–R004: corresponding RE binary observations; R005: selected string groups.
 - K001–K004: statistics, encoding candidates, literal RSA checks, public PEM/X.509 data.
 - F001–F003: statistics, supported container structure, optional ExifTool metadata.
+- F004: bounded packet-header summary for recognized PCAP/PCAPNG; not applicable to other files.
 - W001–W005: response/redirects, headers, HTML, optional robots, optional exposure indicators.
 
 For PE inputs, P/R001 is the header check, P/R002 covers layout and mitigation
@@ -75,12 +76,16 @@ independent. R005 still groups selected strings. The envelope remains schema 0.1
 with format-specific check data; check `tool.version` when consuming evolving
 alpha fields. These are not the IDs from the earlier planning catalog.
 
-F002 now includes bounded PCAPNG 1.0 metadata. A PCAPNG magic signature routes
+F002 includes classic PCAP and bounded PCAPNG 1.0 metadata. Either capture signature routes
 `--category auto` to forensics, regardless of the filename extension. For this
-format, C002 is a built-in signature observation; C003/C004/F003 are skipped
+capture family, C002 is a built-in signature observation; C003/C004/F003 are skipped
 with a metadata-only explanation. A forced crypto category also skips
 K002–K004. There is no payload-export switch in this release.
-See [PCAPNG coverage](PCAPNG.md) for exact fields, caps and an example.
+See [PCAPNG coverage](PCAPNG.md) for container fields and [packet summaries](PACKETS.md)
+for F004 header fields, caps and status semantics. F004 starts automatically in
+forensics. Failed/unsupported container parsing skips F004 and discards any
+accumulated header results. Packet-level issues make F004 partial without making
+a structurally valid F002 fail. Both formats omit payloads and addresses.
 
 PE names/ordinals, section permissions, entropy samples, RVA mappings, forwarders
 and certificate/trailing-data fields are documented in [PE coverage](PE.md).
